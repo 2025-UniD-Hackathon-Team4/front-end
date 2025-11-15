@@ -60,6 +60,8 @@ export default function Home({
   const [apiCaffeineEntries, setApiCaffeineEntries] = useState([]);
   const [apiCaffeineTotal, setApiCaffeineTotal] = useState(null);
   const [conditionSummary, setConditionSummary] = useState('');
+  const [conditionSummaryLoading, setConditionSummaryLoading] = useState(false);
+  const [conditionSummaryError, setConditionSummaryError] = useState(null);
   const authHeaders = useMemo(() => {
     if (naverAuthParams?.accessToken) {
       return { Authorization: `Bearer ${naverAuthParams.accessToken}` };
@@ -226,6 +228,16 @@ export default function Home({
     return `${year}년 ${month}월 ${day}일`;
   }, [selectedDate]);
 
+  const selectedDateParam = useMemo(() => {
+    if (!(selectedDate instanceof Date) || Number.isNaN(selectedDate.getTime())) {
+      return null;
+    }
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, [selectedDate]);
+
   const isNextDisabled = useMemo(() => {
     const normalizedSelected = new Date(selectedDate);
     normalizedSelected.setHours(0, 0, 0, 0);
@@ -260,12 +272,58 @@ export default function Home({
     return normalized.getTime();
   }, [selectedDate]);
 
-  const selectedDateParam = useMemo(() => {
-    const year = selectedDate.getFullYear();
-    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-    const day = String(selectedDate.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }, [selectedDate]);
+  const fetchConditionSummary = useCallback(async () => {
+    if (!selectedDateParam) {
+      return;
+    }
+
+    setConditionSummaryLoading(true);
+    setConditionSummaryError(null);
+    try {
+      const query = new URLSearchParams({
+        userId: '1',
+        date: selectedDateParam,
+      });
+
+      const response = await fetch(`${buildApiUrl('/api/daily-summary/summary')}?${query.toString()}`, {
+        headers: {
+          ...authHeaders,
+        },
+      });
+
+      const rawBody = await response.text();
+
+      if (!response.ok) {
+        throw new Error(
+          `daily-summary/summary 요청 실패 (status: ${response.status}) body: ${rawBody.slice(0, 200)}`,
+        );
+      }
+
+      let parsedBody = null;
+      if (rawBody) {
+        try {
+          parsedBody = JSON.parse(rawBody);
+        } catch (parseError) {
+          
+        }
+      }
+
+      const nextSummary =
+        parsedBody?.conditionSummary ??
+        parsedBody?.summary ??
+        (typeof rawBody === 'string' ? rawBody.trim() : '');
+      setConditionSummary(nextSummary);
+    } catch (error) {
+      setConditionSummary('');
+      setConditionSummaryError('컨디션 요약을 불러오는 중 문제가 발생했어요.');
+    } finally {
+      setConditionSummaryLoading(false);
+    }
+  }, [authHeaders, selectedDateParam]);
+
+  useEffect(() => {
+    fetchConditionSummary();
+  }, [fetchConditionSummary]);
 
   useEffect(() => {
     let isActive = true;
@@ -670,7 +728,7 @@ export default function Home({
             {displayCaffeineEntries.length === 0 ? (
                 <View style={styles.caffeinePlaceholder}>
                   <Text style={styles.caffeinePlaceholderText}>
-                    {caffeineLoading ? '카페인 데이터를 불러오는 중...' : '오늘의 카페인을 기록해보세요'}
+                    {caffeineLoading ? '...' : '오늘의 카페인을 기록해보세요'}
                   </Text>
                 </View>
             ) : (
@@ -692,16 +750,23 @@ export default function Home({
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderLeft}>
                 <Text style={styles.cardEmoji}>🤖</Text>
-                <Text style={styles.cardTitle}>LLM 리포트</Text>
+                <Text style={styles.cardTitle}>카수온 리포트</Text>
               </View>
             </View>
-            {conditionSummary ? (
+            {conditionSummaryLoading && (
+              <Text style={styles.llmStatusText}>컨디션 요약을 불러오는 중이에요...</Text>
+            )}
+            {!conditionSummaryLoading && conditionSummaryError && (
+              <Text style={styles.llmStatusError}>{conditionSummaryError}</Text>
+            )}
+            {!conditionSummaryLoading && !conditionSummaryError && conditionSummary ? (
               <Text style={styles.llmSummaryText}>{conditionSummary}</Text>
-            ) : (
+            ) : null}
+            {!conditionSummaryLoading && !conditionSummaryError && !conditionSummary ? (
               <Text style={styles.llmPlaceholder}>
                 수면 분석을 완료하면 컨디션 요약이 표시돼요
               </Text>
-            )}
+            ) : null}
           </View>
 
           <TouchableOpacity
@@ -746,6 +811,7 @@ export default function Home({
           sleepEndAt={sleepEndTime}
           authHeaders={authHeaders}
           onAnalyze={(summary) => {
+            setConditionSummaryError(null);
             setConditionSummary(summary || '');
             setConditionModal(false);
           }}
@@ -944,6 +1010,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#171717',
     minWidth: 0,
+  },
+  llmStatusText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#56617B',
+    marginBottom: 6,
+  },
+  llmStatusError: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#D9534F',
+    marginBottom: 6,
   },
   llmSummaryText: {
     fontSize: 16,
