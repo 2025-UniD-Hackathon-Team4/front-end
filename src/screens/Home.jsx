@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NavigationTopBar from '../components/NavigationTopBar';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import SleepTimeModal from '../components/SleepTimeModal';
+import ConditionModal from '../components/ConditionModal';
 
 export default function Home({
   activeTab = 'home',
@@ -17,6 +19,10 @@ export default function Home({
     return date;
   });
   const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
+  const [sleepModal, setSleepModal] = useState(false);
+  const [conditionModal, setConditionModal] = useState(false);
+  const [sleepTime, setSleepTime] = useState(new Date());
+  const [condition, setCondition] = useState(null);
 
   const changeDateBy = useCallback((days) => {
     setSelectedDate((prev) => {
@@ -163,10 +169,32 @@ export default function Home({
             )}
           </View>
 
-          <TouchableOpacity style={styles.analyzeButton}>
+          <TouchableOpacity
+            style={styles.analyzeButton}
+            onPress={() => setSleepModal(true)}
+          >
             <Text style={styles.analyzeButtonText}>수면 분석하기</Text>
           </TouchableOpacity>
         </View>
+
+        <SleepTimeModal
+          visible={sleepModal}
+          sleepTime={sleepTime}
+          setSleepTime={setSleepTime}
+          onNext={() => {
+            setSleepModal(false);
+            setConditionModal(true);
+          }}
+          onClose={() => setSleepModal(false)}
+        />
+
+        <ConditionModal
+          visible={conditionModal}
+          condition={condition}
+          setCondition={setCondition}
+          onAnalyze={() => setConditionModal(false)}
+          onClose={() => setConditionModal(false)}
+        />
         
         <NavigationTopBar activeTab={activeTab} onTabChange={onTabChange} />
       </View>
@@ -396,11 +424,11 @@ const styles = StyleSheet.create({
     color: '#4E5875',
   },
   analyzeButton: {
-    backgroundColor: '#8DB5FF',
+    backgroundColor: '#66A9FF',
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 36,
+    marginTop: 5,
   },
   analyzeButtonText: {
     fontSize: 22,
