@@ -17,6 +17,8 @@ import ConditionModal from '../components/ConditionModal';
 import { buildApiUrl } from '../utils/api';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+const CASUON_TEMP_MIN = 0;
+const CASUON_TEMP_MAX = 100;
 
 const createDefaultSleepGoalTime = () => {
   const date = new Date();
@@ -57,6 +59,7 @@ export default function Home({
   const [caffeineError, setCaffeineError] = useState(null);
   const [apiCaffeineEntries, setApiCaffeineEntries] = useState([]);
   const [apiCaffeineTotal, setApiCaffeineTotal] = useState(null);
+  const [conditionSummary, setConditionSummary] = useState('');
   const authHeaders = useMemo(() => {
     if (naverAuthParams?.accessToken) {
       return { Authorization: `Bearer ${naverAuthParams.accessToken}` };
@@ -162,7 +165,7 @@ export default function Home({
           throw new Error(`sleapGoal 요청 실패 (status: ${response.status})`);
         }
       } catch (error) {
-        console.error('[Home] sleapGoal save error:', error);
+        
       }
     },
     [authHeaders, formatGoalTime],
@@ -298,7 +301,6 @@ export default function Home({
         if (!isActive) {
           return;
         }
-        console.error('[Home] sleepGoal fetch error:', error);
         setTargetSleepTime(createDefaultSleepGoalTime());
       }
     };
@@ -422,6 +424,27 @@ export default function Home({
     return typeof casuon === 'number' && Number.isFinite(casuon);
   }, [casuon]);
 
+  const casuonFillProgress = useMemo(() => {
+    if (casuonLoading) {
+      return 0;
+    }
+
+    const numericValue = Number(casuonDisplayValue);
+    if (!Number.isFinite(numericValue)) {
+      return 0;
+    }
+
+    const clampedValue = Math.min(Math.max(numericValue, CASUON_TEMP_MIN), CASUON_TEMP_MAX);
+    return (clampedValue - CASUON_TEMP_MIN) / (CASUON_TEMP_MAX - CASUON_TEMP_MIN);
+  }, [casuonDisplayValue, casuonLoading]);
+
+  const scoreBarFillStyle = useMemo(
+    () => ({
+      width: `${Math.round(Math.min(Math.max(casuonFillProgress, 0), 1) * 100)}%`,
+    }),
+    [casuonFillProgress],
+  );
+
   useEffect(() => {
     let isActive = true;
 
@@ -451,8 +474,7 @@ export default function Home({
       } catch (error) {
         if (!isActive) {
           return;
-        }
-        console.error('[Home] conditionTemp fetch error:', error);
+        }        
         setCasuonError(error);
         setCasuon(null);
       } finally {
@@ -516,7 +538,7 @@ export default function Home({
         if (!isActive) {
           return;
         }
-        console.error('[Home] caffeine by day fetch error:', error);
+        
         setCaffeineError(error);
         setApiCaffeineEntries([]);
         setApiCaffeineTotal(null);
@@ -587,7 +609,7 @@ export default function Home({
             <Text style={styles.scoreValue}>{casuonDisplayValue}°C</Text>
             <Text style={styles.scoreLabel}>{casuonStatusLabel}</Text>
             <View style={styles.scoreBar}>
-                <View style={styles.scoreBarFill} />
+                <View style={[styles.scoreBarFill, scoreBarFillStyle]} />
             </View>
           </View>
 
@@ -643,7 +665,7 @@ export default function Home({
               <Text style={styles.caffeineStatusText}>...</Text>
             )}
             {caffeineError && !caffeineLoading && (
-              <Text style={styles.caffeineStatusError}>실패</Text>
+              <Text style={styles.caffeineStatusError}></Text>
             )}
             {displayCaffeineEntries.length === 0 ? (
                 <View style={styles.caffeinePlaceholder}>
@@ -663,6 +685,22 @@ export default function Home({
                     </View>
                 ))}
                 </View>
+            )}
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardHeaderLeft}>
+                <Text style={styles.cardEmoji}>🤖</Text>
+                <Text style={styles.cardTitle}>LLM 리포트</Text>
+              </View>
+            </View>
+            {conditionSummary ? (
+              <Text style={styles.llmSummaryText}>{conditionSummary}</Text>
+            ) : (
+              <Text style={styles.llmPlaceholder}>
+                수면 분석을 완료하면 컨디션 요약이 표시돼요
+              </Text>
             )}
           </View>
 
@@ -707,7 +745,10 @@ export default function Home({
           sleepStartAt={sleepTime}
           sleepEndAt={sleepEndTime}
           authHeaders={authHeaders}
-          onAnalyze={() => setConditionModal(false)}
+          onAnalyze={(summary) => {
+            setConditionSummary(summary || '');
+            setConditionModal(false);
+          }}
           onClose={() => setConditionModal(false)}
         />
 
@@ -860,19 +901,23 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#C9D7F0',
+    backgroundColor: '#D2E2FF',
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#D2E2FF',
+    alignItems: 'flex-start',
   },
   scoreBarFill: {
-    width: '100%',
+    width: '0%',
     height: '100%',
     backgroundColor: '#66A9FF',
+    alignSelf: 'flex-start',
   },
   card: {
     backgroundColor: '#F7F9FF',
     borderRadius: 10,
-    padding: 20,
-    marginBottom: 18,
+    padding: 18,
+    marginBottom: 16,
     borderWidth: 1.5,
     borderColor: '#DCE6F7',
   },
@@ -899,6 +944,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#171717',
     minWidth: 0,
+  },
+  llmSummaryText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#1F2433',
+  },
+  llmPlaceholder: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#8B92A7',
   },
   cardValueWrapper: {
     flexDirection: 'row',
@@ -1143,7 +1198,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   analyzeButtonDisabled: {
-    backgroundColor: '#C6D7F2',
+    backgroundColor: '#D9D9D9',
   },
   analyzeButtonText: {
     fontSize: 22,

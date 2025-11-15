@@ -67,7 +67,8 @@ export default function ConditionModal({
         throw new Error(`daily-summary 요청 실패 (status: ${response.status})`);
       }
 
-      onAnalyze?.();
+      const { conditionSummary } = await response.json();
+      onAnalyze?.(conditionSummary);
     } catch (error) {
       console.error('[ConditionModal] daily-summary error:', error);
     } finally {
