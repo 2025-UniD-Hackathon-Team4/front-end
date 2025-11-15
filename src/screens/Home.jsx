@@ -1,69 +1,107 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NavigationTopBar from '../components/NavigationTopBar';
 
+import SleepTimeModal from '../components/SleepTimeModal';
+import ConditionModal from '../components/ConditionModal';
+
 export default function Home({ activeTab = 'home', onTabChange = () => {} }) {
+
+  // ===== 모달 상태 추가 =====
+  const [sleepModal, setSleepModal] = useState(false);
+  const [conditionModal, setConditionModal] = useState(false);
+
+  const [sleepTime, setSleepTime] = useState(new Date());
+  const [condition, setCondition] = useState(null);
+  // =========================
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.content}>
           <View style={styles.header}>
-          <TouchableOpacity style={styles.navButton}>
-            <Text style={styles.navIcon}>‹</Text>
-          </TouchableOpacity>
-          <Text style={styles.dateText}>2025/09/04</Text>
-          <TouchableOpacity style={styles.navButton}>
-            <Text style={styles.navIcon}>›</Text>
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.navButton}>
+              <Text style={styles.navIcon}>‹</Text>
+            </TouchableOpacity>
+            <Text style={styles.dateText}>2025/09/04</Text>
+            <TouchableOpacity style={styles.navButton}>
+              <Text style={styles.navIcon}>›</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.scoreSection}>
-          <Text style={styles.scoreValue}>100°C</Text>
-          <View style={styles.scoreBar}>
-            <View style={styles.scoreBarFill} />
-          </View>
-          </View>
-
-          <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardEmoji}>😴</Text>
-            <Text style={styles.cardTitle}>목표 취침 시간</Text>
-          </View>
-          <View style={styles.chip}>
-            <Text style={styles.chipText}>오후 11:00</Text>
-          </View>
-          </View>
-
-          <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardEmoji}>☕</Text>
-            <Text style={styles.cardTitle}>오늘의 카페인</Text>
-            <View style={styles.cardValueWrapper}>
-              <Text style={styles.cardValueLabel}>총</Text>
-              <Text style={styles.cardValueAccent}>0mg</Text>
+            <Text style={styles.scoreValue}>100°C</Text>
+            <View style={styles.scoreBar}>
+              <View style={styles.scoreBarFill} />
             </View>
           </View>
-          <TouchableOpacity style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>+  카페인 기록하기</Text>
-          </TouchableOpacity>
+
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardEmoji}>😴</Text>
+              <Text style={styles.cardTitle}>목표 취침 시간</Text>
+            </View>
+            <View style={styles.chip}>
+              <Text style={styles.chipText}>오후 11:00</Text>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardEmoji}>☕</Text>
+              <Text style={styles.cardTitle}>오늘의 카페인</Text>
+              <View style={styles.cardValueWrapper}>
+                <Text style={styles.cardValueLabel}>총</Text>
+                <Text style={styles.cardValueAccent}>0mg</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>+  카페인 기록하기</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.metricsRow}>
-          <View style={[styles.metricCard, styles.metricBlue]}>
-            <Text style={styles.metricValue}>7시간 23분</Text>
-            <Text style={styles.metricLabel}>평균 수면시간</Text>
-          </View>
-          <View style={[styles.metricCard, styles.metricYellow]}>
-            <Text style={styles.metricValue}>130mg</Text>
-            <Text style={styles.metricLabel}>평균 카페인 섭취량</Text>
-          </View>
+            <View style={[styles.metricCard, styles.metricBlue]}>
+              <Text style={styles.metricValue}>7시간 23분</Text>
+              <Text style={styles.metricLabel}>평균 수면시간</Text>
+            </View>
+            <View style={[styles.metricCard, styles.metricYellow]}>
+              <Text style={styles.metricValue}>130mg</Text>
+              <Text style={styles.metricLabel}>평균 카페인 섭취량</Text>
+            </View>
           </View>
 
-          <TouchableOpacity style={styles.analyzeButton}>
-          <Text style={styles.analyzeButtonText}>수면 분석하기</Text>
-        </TouchableOpacity>
+          {/* ===== 수면 분석하기 버튼 (모달 연결) ===== */}
+          <TouchableOpacity
+            style={styles.analyzeButton}
+            onPress={() => setSleepModal(true)}
+          >
+            <Text style={styles.analyzeButtonText}>수면 분석하기</Text>
+          </TouchableOpacity>
         </View>
+
+        {/* ===== 1단계 모달: 수면시간 ===== */}
+        <SleepTimeModal
+          visible={sleepModal}
+          sleepTime={sleepTime}
+          setSleepTime={setSleepTime}
+          onNext={() => {
+            setSleepModal(false);
+            setConditionModal(true);
+          }}
+          onClose={() => setSleepModal(false)}
+        />
+
+        {/* ===== 2단계 모달: 컨디션 ===== */}
+        <ConditionModal
+          visible={conditionModal}
+          condition={condition}
+          setCondition={setCondition}
+          onAnalyze={() => setConditionModal(false)}
+          onClose={() => setConditionModal(false)}
+        />
+
         <NavigationTopBar activeTab={activeTab} onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
