@@ -44,7 +44,7 @@ const createResolvedDate = (input) => {
 
 const formatDateTimeForApi = (input) => {
   const resolvedDate = createResolvedDate(input);
-  return resolvedDate.toISOString().replace(/Z$/, '');
+  return resolvedDate.toISOString().replace(/\.\d{3}Z$/, '');
 };
 
 export default function CaffeineLog({
