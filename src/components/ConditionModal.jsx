@@ -1,13 +1,80 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { buildApiUrl } from '../utils/api';
+
+const CONDITION_SCORE = {
+  great: 3,
+  normal: 2,
+  bad: 1,
+};
 
 export default function ConditionModal({
   visible,
   condition,
   setCondition,
+  sleepStartAt,
+  sleepEndAt,
+  authHeaders = {},
+  userId = 1,
   onAnalyze,
   onClose,
 }) {
+  const [submitting, setSubmitting] = useState(false);
+  const freshness = useMemo(() => CONDITION_SCORE[condition] || 0, [condition]);
+
+  const sleepStartAtIso = useMemo(() => {
+    if (sleepStartAt instanceof Date && !Number.isNaN(sleepStartAt.getTime())) {
+      return sleepStartAt.toISOString();
+    }
+    return null;
+  }, [sleepStartAt]);
+
+  const sleepEndAtIso = useMemo(() => {
+    if (sleepEndAt instanceof Date && !Number.isNaN(sleepEndAt.getTime())) {
+      return sleepEndAt.toISOString();
+    }
+    return null;
+  }, [sleepEndAt]);
+
+  const handleAnalyze = async () => {
+    if (!freshness || !sleepStartAtIso || !sleepEndAtIso || submitting) {
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await fetch(buildApiUrl('/api/daily-summary'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders,
+        },
+        body: JSON.stringify({
+          userId,
+          sleepStartAt: sleepStartAtIso,
+          sleepEndAt: sleepEndAtIso,
+          freshness,
+        }),
+      });
+      console.log(JSON.stringify({
+        userId,
+        sleepStartAt: sleepStartAtIso,
+        sleepEndAt: sleepEndAtIso,
+        freshness,
+      }));
+
+      if (!response.ok) {
+        throw new Error(`daily-summary 요청 실패 (status: ${response.status})`);
+      }
+
+      onAnalyze?.();
+    } catch (error) {
+      console.error('[ConditionModal] daily-summary error:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <Modal transparent={true} visible={visible} animationType="fade">
       <View style={styles.modalBackground}>
@@ -52,8 +119,12 @@ export default function ConditionModal({
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.analyzeBtn} onPress={onAnalyze}>
-            <Text style={styles.analyzeText}>분석하기</Text>
+          <TouchableOpacity
+            style={[styles.analyzeBtn, (!freshness || submitting) && styles.analyzeBtnDisabled]}
+            onPress={handleAnalyze}
+            disabled={!freshness || submitting}
+          >
+            <Text style={styles.analyzeText}>{submitting ? '분석 중...' : '분석하기'}</Text>
           </TouchableOpacity>
 
         </View>
@@ -102,6 +173,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     marginTop: 10,
+  },
+  analyzeBtnDisabled: {
+    backgroundColor: '#A5BDF5',
   },
   analyzeText: {
     textAlign: 'center',

@@ -96,18 +96,33 @@ export default function Stats({ activeTab = 'stats', onTabChange = () => {} }) {
           </View>
 
           <View style={styles.toggleWrapper}>
-            <TouchableOpacity
-              style={[styles.toggleButton, mode === 'week' && styles.toggleActiveWeek]}
-              onPress={() => setMode('week')}
-            >
-              <Text style={styles.toggleText}>주간</Text>
+            <View
+              style={[
+                styles.toggleIndicator,
+                mode === 'week' ? styles.indicatorWeek : styles.indicatorMonth,
+              ]}
+            />
+
+            <TouchableOpacity style={styles.toggleButton} onPress={() => setMode('week')}>
+              <Text
+                style={[
+                  styles.toggleText,
+                  mode === 'week' ? styles.toggleTextActive : styles.toggleTextInactive,
+                ]}
+              >
+                주간
+              </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.toggleButton, mode === 'month' && styles.toggleActiveMonth]}
-              onPress={() => setMode('month')}
-            >
-              <Text style={styles.toggleText}>월간</Text>
+            <TouchableOpacity style={styles.toggleButton} onPress={() => setMode('month')}>
+              <Text
+                style={[
+                  styles.toggleText,
+                  mode === 'month' ? styles.toggleTextActive : styles.toggleTextInactive,
+                ]}
+              >
+                월간
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -132,13 +147,6 @@ export default function Stats({ activeTab = 'stats', onTabChange = () => {} }) {
 
           <View style={styles.chartBox}>
             <Text style={styles.chartTitle}>수면 시간</Text>
-            <View style={styles.chartPlaceholder}>
-              <Text style={{ color: '#BBBBBB' }}>(그래프 영역)</Text>
-            </View>
-          </View>
-
-          <View style={styles.chartBox}>
-            <Text style={styles.chartTitle}>컨디션 온도</Text>
             <View style={styles.chartPlaceholder}>
               <Text style={{ color: '#BBBBBB' }}>(그래프 영역)</Text>
             </View>
@@ -199,30 +207,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1D1D1F',
   },
-
   toggleWrapper: {
+    position: 'relative',
     flexDirection: 'row',
-    borderRadius: 30,
-    backgroundColor: '#F0F0F0',
-    overflow: 'hidden',
-    marginBottom: 20,
+    borderRadius: 10,
+    backgroundColor: '#E6E6E6',
+    padding: 4,
+    marginBottom: 24,
+    shadowColor: '#C0D3FF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  toggleIndicator: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    width: '50%',
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#94A3B8',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    elevation: 12,
+  },
+  indicatorWeek: {
+    left: 4,
+  },
+  indicatorMonth: {
+    right: 4,
   },
   toggleButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 16,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   toggleText: {
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 16,
   },
-  toggleActiveWeek: {
-    backgroundColor: '#BDFCC9',
+  toggleTextActive: {
+    color: '#1F2433',
   },
-  toggleActiveMonth: {
-    backgroundColor: '#FFDDDD',
+  toggleTextInactive: {
+    color: '#6B7280',
   },
-
   avgRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

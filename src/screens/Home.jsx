@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,25 +14,34 @@ import NavigationTopBar from '../components/NavigationTopBar';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import SleepTimeModal from '../components/SleepTimeModal';
 import ConditionModal from '../components/ConditionModal';
+import { buildApiUrl } from '../utils/api';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+const createDefaultSleepGoalTime = () => {
+  const date = new Date();
+  date.setHours(23, 0, 0, 0);
+  return date;
+};
 
 export default function Home({
   activeTab = 'home',
   onTabChange = () => {},
   caffeineEntries = [],
   onAddCaffeinePress = () => {},
+  naverAuthParams = null,
 }) {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
-  const [targetSleepTime, setTargetSleepTime] = useState(() => {
-    const date = new Date();
-    date.setHours(23, 0, 0, 0);
-    return date;
-  });
+  const [targetSleepTime, setTargetSleepTime] = useState(createDefaultSleepGoalTime);
   const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
   const [sleepModal, setSleepModal] = useState(false);
   const [conditionModal, setConditionModal] = useState(false);
   const [sleepTime, setSleepTime] = useState(new Date());
+  const [sleepEndTime, setSleepEndTime] = useState(() => {
+    const d = new Date();
+    d.setHours(8, 0, 0, 0);
+    return d;
+  });
   const [condition, setCondition] = useState(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -41,6 +50,19 @@ export default function Home({
     initial.setHours(0, 0, 0, 0);
     return initial;
   });
+  const [casuon, setCasuon] = useState(null);
+  const [casuonLoading, setCasuonLoading] = useState(false);
+  const [casuonError, setCasuonError] = useState(null);
+  const [caffeineLoading, setCaffeineLoading] = useState(false);
+  const [caffeineError, setCaffeineError] = useState(null);
+  const [apiCaffeineEntries, setApiCaffeineEntries] = useState([]);
+  const [apiCaffeineTotal, setApiCaffeineTotal] = useState(null);
+  const authHeaders = useMemo(() => {
+    if (naverAuthParams?.accessToken) {
+      return { Authorization: `Bearer ${naverAuthParams.accessToken}` };
+    }
+    return {};
+  }, [naverAuthParams]);
 
   const changeDateBy = useCallback((days) => {
     setSelectedDate((prev) => {
@@ -50,9 +72,63 @@ export default function Home({
     });
   }, []);
 
-  const openTimePicker = useCallback(() => {
-    setIsTimePickerVisible(true);
+  const today = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
   }, []);
+
+  const isSelectedDateToday = useMemo(() => {
+    const normalizedSelected = new Date(selectedDate);
+    normalizedSelected.setHours(0, 0, 0, 0);
+    return normalizedSelected.getTime() === today.getTime();
+  }, [selectedDate, today]);
+
+  const formatGoalTime = useCallback((date) => {
+    if (!(date instanceof Date)) {
+      return '';
+    }
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const period = hours >= 12 ? '오후' : '오전';
+    const hour12 = hours % 12 || 12;
+    return `${period} ${hour12}:${minutes}`;
+  }, []);
+
+  const parseGoalTimeString = useCallback((value) => {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    const trimmed = value.trim();
+    const match = trimmed.match(/^(오전|오후)\s*(\d{1,2}):(\d{2})$/);
+    if (!match) {
+      return null;
+    }
+
+    let hours = parseInt(match[2], 10);
+    const minutes = parseInt(match[3], 10);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+      return null;
+    }
+
+    const period = match[1];
+    if (period === '오후' && hours !== 12) {
+      hours += 12;
+    } else if (period === '오전' && hours === 12) {
+      hours = 0;
+    }
+
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date;
+  }, []);
+
+  const openTimePicker = useCallback(() => {
+    if (!isSelectedDateToday) {
+      return;
+    }
+    setIsTimePickerVisible(true);
+  }, [isSelectedDateToday]);
 
   const openDatePicker = useCallback(() => {
     setCalendarMonth(() => {
@@ -64,6 +140,34 @@ export default function Home({
     setIsDatePickerVisible(true);
   }, [selectedDate]);
 
+  const saveSleepGoal = useCallback(
+    async (goalDate) => {
+      if (!(goalDate instanceof Date)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(buildApiUrl('/api/add/sleapGoal'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            ...authHeaders,
+          },
+          body: formatGoalTime(goalDate),
+        });
+        
+        console.log(await response.json());
+
+        if (!response.ok) {
+          throw new Error(`sleapGoal 요청 실패 (status: ${response.status})`);
+        }
+      } catch (error) {
+        console.error('[Home] sleapGoal save error:', error);
+      }
+    },
+    [authHeaders, formatGoalTime],
+  );
+
   const handleTimeChange = useCallback(
     (event, selectedTime) => {
       if (event?.type === 'dismissed') {
@@ -72,19 +176,41 @@ export default function Home({
         }
         return;
       }
+
+      if (!isSelectedDateToday) {
+        if (Platform.OS === 'android') {
+          setIsTimePickerVisible(false);
+        }
+        return;
+      }
+
       if (selectedTime) {
         setTargetSleepTime(selectedTime);
-      }
-      if (Platform.OS === 'android') {
+        if (Platform.OS === 'android') {
+          setIsTimePickerVisible(false);
+          saveSleepGoal(selectedTime);
+        }
+      } else if (Platform.OS === 'android') {
         setIsTimePickerVisible(false);
       }
     },
-    [],
+    [isSelectedDateToday, saveSleepGoal],
   );
 
-  const closeTimePicker = useCallback(() => {
+  const handleTimePickerDone = useCallback(() => {
+    if (!isSelectedDateToday) {
+      setIsTimePickerVisible(false);
+      return;
+    }
     setIsTimePickerVisible(false);
-  }, []);
+    saveSleepGoal(targetSleepTime);
+  }, [isSelectedDateToday, saveSleepGoal, targetSleepTime]);
+
+  useEffect(() => {
+    if (!isSelectedDateToday && isTimePickerVisible) {
+      setIsTimePickerVisible(false);
+    }
+  }, [isSelectedDateToday, isTimePickerVisible]);
 
   const closeDatePicker = useCallback(() => {
     setIsDatePickerVisible(false);
@@ -96,12 +222,6 @@ export default function Home({
     const day = String(selectedDate.getDate()).padStart(2, '0');
     return `${year}년 ${month}월 ${day}일`;
   }, [selectedDate]);
-
-  const today = useMemo(() => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    return now;
-  }, []);
 
   const isNextDisabled = useMemo(() => {
     const normalizedSelected = new Date(selectedDate);
@@ -136,6 +256,59 @@ export default function Home({
     normalized.setHours(0, 0, 0, 0);
     return normalized.getTime();
   }, [selectedDate]);
+
+  const selectedDateParam = useMemo(() => {
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, [selectedDate]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchSleepGoal = async () => {
+      try {
+        const query = `date=${encodeURIComponent(selectedDateParam)}`;
+        const response = await fetch(`${buildApiUrl('/api/sleepGoal')}?${query}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders,
+          },
+        });
+        console.log(query);
+
+        if (!response.ok) {
+          throw new Error(`sleepGoal 요청 실패 (status: ${response.status})`);
+        }
+
+        const data = await response.json();
+        console.log(data);
+        if (!isActive) {
+          return;
+        }
+
+        const parsedSleepGoal = parseGoalTimeString(data?.result);
+        if (parsedSleepGoal) {
+          setTargetSleepTime(parsedSleepGoal);
+        } else {
+          setTargetSleepTime(createDefaultSleepGoalTime());
+        }
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+        console.error('[Home] sleepGoal fetch error:', error);
+        setTargetSleepTime(createDefaultSleepGoalTime());
+      }
+    };
+
+    fetchSleepGoal();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedDateParam, authHeaders, parseGoalTimeString]);
 
   const calendarWeeks = useMemo(() => {
     const start = new Date(calendarMonth);
@@ -203,21 +376,172 @@ export default function Home({
     [today],
   );
 
-  const targetSleepLabel = useMemo(() => {
-    const hours = targetSleepTime.getHours();
-    const minutes = String(targetSleepTime.getMinutes()).padStart(2, '0');
-    const period = hours >= 12 ? '오후' : '오전';
-    const hour12 = hours % 12 || 12;
-    return `${period} ${hour12}:${minutes}`;
-  }, [targetSleepTime]);
+  const targetSleepLabel = useMemo(() => formatGoalTime(targetSleepTime), [formatGoalTime, targetSleepTime]);
 
-  const totalCaffeineIntake = useMemo(
-    () => caffeineEntries.reduce((sum, entry) => sum + (entry.mg || 0), 0),
-    [caffeineEntries],
-  );
+  const displayCaffeineEntries = useMemo(() => {
+    if (!caffeineError) {
+      return apiCaffeineEntries;
+    }
+    return caffeineEntries;
+  }, [apiCaffeineEntries, caffeineEntries, caffeineError]);
+
+  const totalCaffeineIntake = useMemo(() => {
+    if (!caffeineError) {
+      if (typeof apiCaffeineTotal === 'number') {
+        return apiCaffeineTotal;
+      }
+      if (apiCaffeineEntries.length > 0) {
+        return apiCaffeineEntries.reduce((sum, entry) => sum + (entry.mg || 0), 0);
+      }
+      return 0;
+    }
+    return caffeineEntries.reduce((sum, entry) => sum + (entry.mg || 0), 0);
+  }, [apiCaffeineEntries, apiCaffeineTotal, caffeineEntries, caffeineError]);
+
+  const casuonDisplayValue = useMemo(() => {
+    if (casuonLoading) {
+      return '...';
+    }
+    if (typeof casuon === 'number' && Number.isFinite(casuon)) {
+      return casuon;
+    }
+    return '--';
+  }, [casuon, casuonLoading]);
+
+  const casuonStatusLabel = useMemo(() => {
+    if (casuonLoading) {
+      return '...';
+    }
+    if (casuonError) {
+      return '해당 날짜의 데이터가 없습니다';
+    }
+    return "Today's Casuon";
+  }, [casuonLoading, casuonError]);
+
+  const isSleepAnalyzeDisabled = useMemo(() => {
+    return typeof casuon === 'number' && Number.isFinite(casuon);
+  }, [casuon]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchConditionTemp = async () => {
+      setCasuonLoading(true);
+      setCasuonError(null);
+      try {
+        const query = `date=${encodeURIComponent(selectedDateParam)}`;
+        const response = await fetch(`${buildApiUrl('/api/conditionTemp')}?${query}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`conditionTemp 요청 실패 (status: ${response.status})`);
+        }
+
+        const data = await response.json();
+        if (!isActive) {
+          return;
+        }
+
+        const nextValue = typeof data?.result === 'number' ? data.result : null;
+        setCasuon(nextValue);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+        console.error('[Home] conditionTemp fetch error:', error);
+        setCasuonError(error);
+        setCasuon(null);
+      } finally {
+        if (isActive) {
+          setCasuonLoading(false);
+        }
+      }
+    };
+
+    fetchConditionTemp();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedDateParam, authHeaders]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchCaffeineByDay = async () => {
+      setCaffeineLoading(true);
+      setCaffeineError(null);
+      try {
+        const query = `date=${encodeURIComponent(selectedDateParam)}`;
+        const response = await fetch(`${buildApiUrl('/caffeine/caffeine/byDay')}?${query}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders,
+          },
+        });
+
+        const data = await response.json();
+        console.log(query, data);
+
+        if (!response.ok) {
+          throw new Error(`caffeine by day 요청 실패 (status: ${response.status})`);
+        }
+        if (!isActive) {
+          return;
+        }
+
+        const intakeList = Array.isArray(data?.result?.caffeineIntakes)
+          ? data.result.caffeineIntakes
+          : [];
+        const normalizedEntries = intakeList.map((item, index) => ({
+          id: item.dateTime ? `${item.dateTime}-${index}` : `caffeine-${index}`,
+          beverage: item.menuName || item.storeName || '기록',
+          mg: item.caffeineMg ?? 0,
+          time: item.dateTime || null,
+          storeName: item.storeName,
+          size: item.size,
+        }));
+        const totalFromApi =
+          typeof data?.result?.totalCaffeineMg === 'number'
+            ? data.result.totalCaffeineMg
+            : normalizedEntries.reduce((sum, entry) => sum + (entry.mg || 0), 0);
+
+        setApiCaffeineEntries(normalizedEntries);
+        setApiCaffeineTotal(totalFromApi);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+        console.error('[Home] caffeine by day fetch error:', error);
+        setCaffeineError(error);
+        setApiCaffeineEntries([]);
+        setApiCaffeineTotal(null);
+      } finally {
+        if (isActive) {
+          setCaffeineLoading(false);
+        }
+      }
+    };
+
+    fetchCaffeineByDay();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedDateParam, authHeaders]);
 
   const formatEntryTime = useCallback((value) => {
+    if (!value) {
+      return '-';
+    }
     const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '-';
+    }
     const hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const period = hours >= 12 ? '오후' : '오전';
@@ -260,8 +584,8 @@ export default function Home({
           )}
 
           <View style={styles.scoreSection}>
-            <Text style={styles.scoreValue}>--°C</Text>
-            <Text style={styles.scoreLabel}>Today's Cosuon</Text>
+            <Text style={styles.scoreValue}>{casuonDisplayValue}°C</Text>
+            <Text style={styles.scoreLabel}>{casuonStatusLabel}</Text>
             <View style={styles.scoreBar}>
                 <View style={styles.scoreBarFill} />
             </View>
@@ -272,9 +596,16 @@ export default function Home({
             <Text style={styles.cardEmoji}>😴</Text>
             <Text style={styles.cardTitle}>목표 취침 시간</Text>
           </View>
-          <TouchableOpacity style={styles.chip} onPress={openTimePicker}>
+          <TouchableOpacity
+            style={[styles.chip, !isSelectedDateToday && styles.chipDisabled]}
+            onPress={openTimePicker}
+            disabled={!isSelectedDateToday}
+          >
             <Text style={styles.chipText}>{targetSleepLabel}</Text>
           </TouchableOpacity>
+          {!isSelectedDateToday && (
+            <Text style={styles.chipHelperText}>지난 날짜의 목표 취침 시간은 변경할 수 없어요</Text>
+          )}
           {isTimePickerVisible && (
             <View style={styles.timePickerWrapper}>
               <DateTimePicker
@@ -285,7 +616,7 @@ export default function Home({
                 locale="ko-KR"
               />
               {Platform.OS === 'ios' && (
-                <TouchableOpacity style={styles.timePickerDoneButton} onPress={closeTimePicker}>
+                <TouchableOpacity style={styles.timePickerDoneButton} onPress={handleTimePickerDone}>
                   <Text style={styles.timePickerDoneText}>완료</Text>
                 </TouchableOpacity>
               )}
@@ -308,14 +639,22 @@ export default function Home({
                 </TouchableOpacity>
                 </View>
             </View>
-            {caffeineEntries.length === 0 ? (
+            {caffeineLoading && (
+              <Text style={styles.caffeineStatusText}>...</Text>
+            )}
+            {caffeineError && !caffeineLoading && (
+              <Text style={styles.caffeineStatusError}>실패</Text>
+            )}
+            {displayCaffeineEntries.length === 0 ? (
                 <View style={styles.caffeinePlaceholder}>
-                <Text style={styles.caffeinePlaceholderText}>오늘의 카페인을 기록해보세요.</Text>
+                  <Text style={styles.caffeinePlaceholderText}>
+                    {caffeineLoading ? '카페인 데이터를 불러오는 중...' : '오늘의 카페인을 기록해보세요'}
+                  </Text>
                 </View>
             ) : (
                 <View style={styles.caffeineList}>
-                {caffeineEntries.map((entry) => (
-                    <View key={entry.id} style={styles.caffeineItem}>
+                {displayCaffeineEntries.map((entry, index) => (
+                    <View key={entry.id || `${entry.time || 'entry'}-${index}`} style={styles.caffeineItem}>
                     <View>
                         <Text style={styles.caffeineItemName}>{entry.beverage}</Text>
                         <Text style={styles.caffeineItemTime}>{formatEntryTime(entry.time)}</Text>
@@ -328,20 +667,35 @@ export default function Home({
           </View>
 
           <TouchableOpacity
-            style={styles.analyzeButton}
+            style={[styles.analyzeButton, isSleepAnalyzeDisabled && styles.analyzeButtonDisabled]}
             onPress={() => setSleepModal(true)}
+            disabled={isSleepAnalyzeDisabled}
           >
-            <Text style={styles.analyzeButtonText}>수면 분석하기</Text>
+            <Text
+              style={[
+                styles.analyzeButtonText,
+                isSleepAnalyzeDisabled && styles.analyzeButtonTextDisabled,
+              ]}
+            >
+              수면 분석하기
+            </Text>
           </TouchableOpacity>
         </ScrollView>
 
         <SleepTimeModal
           visible={sleepModal}
           sleepTime={sleepTime}
+          sleepEndTime={sleepEndTime}
           setSleepTime={setSleepTime}
-          onNext={() => {
+          onNext={({ startTime, endTime }) => {
             setSleepModal(false);
             setConditionModal(true);
+            if (startTime) {
+              setSleepTime(startTime);
+            }
+            if (endTime) {
+              setSleepEndTime(endTime);
+            }
           }}
           onClose={() => setSleepModal(false)}
         />
@@ -350,6 +704,9 @@ export default function Home({
           visible={conditionModal}
           condition={condition}
           setCondition={setCondition}
+          sleepStartAt={sleepTime}
+          sleepEndAt={sleepEndTime}
+          authHeaders={authHeaders}
           onAnalyze={() => setConditionModal(false)}
           onClose={() => setConditionModal(false)}
         />
@@ -575,10 +932,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E3E8F2',
   },
+  chipDisabled: {
+    opacity: 0.5,
+  },
   chipText: {
     fontSize: 20,
     fontWeight: '600',
     color: '#202234',
+  },
+  chipHelperText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#8B92A7',
+    textAlign: 'center',
   },
   caffeinePlaceholder: {
     backgroundColor: '#FFFFFF',
@@ -595,6 +961,16 @@ const styles = StyleSheet.create({
   },
   caffeineList: {
     gap: 12,
+  },
+  caffeineStatusText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  caffeineStatusError: {
+    fontSize: 13,
+    color: '#DC2626',
+    marginBottom: 8,
   },
   caffeineItem: {
     flexDirection: 'row',
@@ -766,10 +1142,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 5,
   },
+  analyzeButtonDisabled: {
+    backgroundColor: '#C6D7F2',
+  },
   analyzeButtonText: {
     fontSize: 22,
     fontWeight: '700',
     color: '#FFFFFF',
     lineHeight: 28,
+  },
+  analyzeButtonTextDisabled: {
+    opacity: 0.5,
   },
 });

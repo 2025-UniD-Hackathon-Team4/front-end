@@ -34,7 +34,7 @@ export default function My({ activeTab = 'my', onTabChange = () => {} }) {
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>N</Text>
             </View>
-            <Text style={styles.profileName}>홍길동</Text>
+            <Text style={styles.profileName}>커수온</Text>
           </View>
 
           <View style={styles.sectionCard}>
@@ -159,9 +159,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 20, paddingTop: 24, justifyContent: 'space-between' },
   content: { flex: 1 },
   profileRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 32 },
-  avatar: { width: 64, height: 64, backgroundColor: '#D9F0A2', borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+  avatar: { width: 52, height: 52, backgroundColor: '#D9F0A2', borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
   avatarText: { fontSize: 28, fontWeight: '700', color: '#1D1D1F' },
-  profileName: { fontSize: 24, fontWeight: '700', color: '#1D1D1F' },
+  profileName: { fontSize: 28, fontWeight: '700', color: '#1D1D1F' },
 
   sectionCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 28, borderWidth: 1, borderColor: '#CDD5DF' },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#202234', marginBottom: 14 },

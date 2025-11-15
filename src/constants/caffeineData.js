@@ -201,25 +201,25 @@ export const COFFEE_BRANDS = [
 ];
 
 const STARBUCKS_COFFEE_SIZES = [
-  { id: 1, label: 'short'},
-  { id: 2, label: 'tall' },
-  { id: 3, label: 'grande' },
-  { id: 4, label: 'venti' },
+  { id: 1, label: 'Short'},
+  { id: 2, label: 'Tall' },
+  { id: 3, label: 'Grande' },
+  { id: 4, label: 'Venti' },
 ];
 
 const TWOSOME_COFFEE_SIZES = [
-  { id: 1, label: 'regular'},
-  { id: 2, label: 'large' },
+  { id: 1, label: 'Regular'},
+  { id: 2, label: 'Large' },
 ];
 
 const MEGA_COFFEE_SIZES = [
-  { id: 1, label: 'regular'},
-  { id: 2, label: 'large' },
+  { id: 1, label: 'Regular'},
+  { id: 2, label: 'Large' },
 ];
 
 const COMPOSE_COFFEE_SIZES = [
-  { id: 1, label: 'regular'},
-  { id: 2, label: 'large' },
+  { id: 1, label: 'Regular'},
+  { id: 2, label: 'Large' },
 ];
 
 export const COFFEE_SIZES = {

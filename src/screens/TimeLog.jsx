@@ -18,9 +18,11 @@ export default function TimeLog({ onSave = () => {}, onCancel = () => {}, initia
     return `${period} ${hour12}:${minutes}`;
   }, [selectedTime]);
 
-  const handleSave = () => {
-    onSave(selectedTime.toISOString());
-  };
+  const selectedTimeIsoString = useMemo(() => selectedTime.toISOString(), [selectedTime]);
+
+  const handleSave = useCallback(() => {
+    onSave(selectedTimeIsoString);
+  }, [onSave, selectedTimeIsoString]);
 
   const handleChangeTime = useCallback(
     (event, nextTime) => {
