@@ -18,6 +18,12 @@ import { buildApiUrl } from '../utils/api';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
+const createDefaultSleepGoalTime = () => {
+  const date = new Date();
+  date.setHours(23, 0, 0, 0);
+  return date;
+};
+
 export default function Home({
   activeTab = 'home',
   onTabChange = () => {},
@@ -26,11 +32,7 @@ export default function Home({
   naverAuthParams = null,
 }) {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
-  const [targetSleepTime, setTargetSleepTime] = useState(() => {
-    const date = new Date();
-    date.setHours(23, 0, 0, 0);
-    return date;
-  });
+  const [targetSleepTime, setTargetSleepTime] = useState(createDefaultSleepGoalTime);
   const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
   const [sleepModal, setSleepModal] = useState(false);
   const [conditionModal, setConditionModal] = useState(false);
@@ -61,6 +63,18 @@ export default function Home({
     });
   }, []);
 
+  const today = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
+  }, []);
+
+  const isSelectedDateToday = useMemo(() => {
+    const normalizedSelected = new Date(selectedDate);
+    normalizedSelected.setHours(0, 0, 0, 0);
+    return normalizedSelected.getTime() === today.getTime();
+  }, [selectedDate, today]);
+
   const formatGoalTime = useCallback((date) => {
     if (!(date instanceof Date)) {
       return '';
@@ -72,9 +86,40 @@ export default function Home({
     return `${period} ${hour12}:${minutes}`;
   }, []);
 
-  const openTimePicker = useCallback(() => {
-    setIsTimePickerVisible(true);
+  const parseGoalTimeString = useCallback((value) => {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    const trimmed = value.trim();
+    const match = trimmed.match(/^(오전|오후)\s*(\d{1,2}):(\d{2})$/);
+    if (!match) {
+      return null;
+    }
+
+    let hours = parseInt(match[2], 10);
+    const minutes = parseInt(match[3], 10);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+      return null;
+    }
+
+    const period = match[1];
+    if (period === '오후' && hours !== 12) {
+      hours += 12;
+    } else if (period === '오전' && hours === 12) {
+      hours = 0;
+    }
+
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date;
   }, []);
+
+  const openTimePicker = useCallback(() => {
+    if (!isSelectedDateToday) {
+      return;
+    }
+    setIsTimePickerVisible(true);
+  }, [isSelectedDateToday]);
 
   const openDatePicker = useCallback(() => {
     setCalendarMonth(() => {
@@ -101,6 +146,8 @@ export default function Home({
           },
           body: formatGoalTime(goalDate),
         });
+        
+        console.log(await response.json());
 
         if (!response.ok) {
           throw new Error(`sleapGoal 요청 실패 (status: ${response.status})`);
@@ -120,6 +167,14 @@ export default function Home({
         }
         return;
       }
+
+      if (!isSelectedDateToday) {
+        if (Platform.OS === 'android') {
+          setIsTimePickerVisible(false);
+        }
+        return;
+      }
+
       if (selectedTime) {
         setTargetSleepTime(selectedTime);
         if (Platform.OS === 'android') {
@@ -130,13 +185,23 @@ export default function Home({
         setIsTimePickerVisible(false);
       }
     },
-    [saveSleepGoal],
+    [isSelectedDateToday, saveSleepGoal],
   );
 
   const handleTimePickerDone = useCallback(() => {
+    if (!isSelectedDateToday) {
+      setIsTimePickerVisible(false);
+      return;
+    }
     setIsTimePickerVisible(false);
     saveSleepGoal(targetSleepTime);
-  }, [saveSleepGoal, targetSleepTime]);
+  }, [isSelectedDateToday, saveSleepGoal, targetSleepTime]);
+
+  useEffect(() => {
+    if (!isSelectedDateToday && isTimePickerVisible) {
+      setIsTimePickerVisible(false);
+    }
+  }, [isSelectedDateToday, isTimePickerVisible]);
 
   const closeDatePicker = useCallback(() => {
     setIsDatePickerVisible(false);
@@ -148,12 +213,6 @@ export default function Home({
     const day = String(selectedDate.getDate()).padStart(2, '0');
     return `${year}년 ${month}월 ${day}일`;
   }, [selectedDate]);
-
-  const today = useMemo(() => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    return now;
-  }, []);
 
   const isNextDisabled = useMemo(() => {
     const normalizedSelected = new Date(selectedDate);
@@ -195,6 +254,52 @@ export default function Home({
     const day = String(selectedDate.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }, [selectedDate]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchSleepGoal = async () => {
+      try {
+        const query = `date=${encodeURIComponent(selectedDateParam)}`;
+        const response = await fetch(`${buildApiUrl('/api/sleepGoal')}?${query}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders,
+          },
+        });
+        console.log(query);
+
+        if (!response.ok) {
+          throw new Error(`sleepGoal 요청 실패 (status: ${response.status})`);
+        }
+
+        const data = await response.json();
+        console.log(data);
+        if (!isActive) {
+          return;
+        }
+
+        const parsedSleepGoal = parseGoalTimeString(data?.result);
+        if (parsedSleepGoal) {
+          setTargetSleepTime(parsedSleepGoal);
+        } else {
+          setTargetSleepTime(createDefaultSleepGoalTime());
+        }
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+        console.error('[Home] sleepGoal fetch error:', error);
+        setTargetSleepTime(createDefaultSleepGoalTime());
+      }
+    };
+
+    fetchSleepGoal();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedDateParam, authHeaders, parseGoalTimeString]);
 
   const calendarWeeks = useMemo(() => {
     const start = new Date(calendarMonth);
@@ -392,9 +497,16 @@ export default function Home({
             <Text style={styles.cardEmoji}>😴</Text>
             <Text style={styles.cardTitle}>목표 취침 시간</Text>
           </View>
-          <TouchableOpacity style={styles.chip} onPress={openTimePicker}>
+          <TouchableOpacity
+            style={[styles.chip, !isSelectedDateToday && styles.chipDisabled]}
+            onPress={openTimePicker}
+            disabled={!isSelectedDateToday}
+          >
             <Text style={styles.chipText}>{targetSleepLabel}</Text>
           </TouchableOpacity>
+          {!isSelectedDateToday && (
+            <Text style={styles.chipHelperText}>지난 날짜의 취침 시간은 변경할 수 없어요</Text>
+          )}
           {isTimePickerVisible && (
             <View style={styles.timePickerWrapper}>
               <DateTimePicker
@@ -695,10 +807,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E3E8F2',
   },
+  chipDisabled: {
+    opacity: 0.5,
+  },
   chipText: {
     fontSize: 20,
     fontWeight: '600',
     color: '#202234',
+  },
+  chipHelperText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#8B92A7',
+    textAlign: 'center',
   },
   caffeinePlaceholder: {
     backgroundColor: '#FFFFFF',
