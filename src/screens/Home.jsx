@@ -1,106 +1,173 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NavigationTopBar from '../components/NavigationTopBar';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
-import SleepTimeModal from '../components/SleepTimeModal';
-import ConditionModal from '../components/ConditionModal';
+export default function Home({
+  activeTab = 'home',
+  onTabChange = () => {},
+  caffeineEntries = [],
+  onAddCaffeinePress = () => {},
+}) {
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [targetSleepTime, setTargetSleepTime] = useState(() => {
+    const date = new Date();
+    date.setHours(23, 0, 0, 0);
+    return date;
+  });
+  const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
 
-export default function Home({ activeTab = 'home', onTabChange = () => {} }) {
+  const changeDateBy = useCallback((days) => {
+    setSelectedDate((prev) => {
+      const nextDate = new Date(prev);
+      nextDate.setDate(prev.getDate() + days);
+      return nextDate;
+    });
+  }, []);
 
-  // ===== 모달 상태 추가 =====
-  const [sleepModal, setSleepModal] = useState(false);
-  const [conditionModal, setConditionModal] = useState(false);
+  const openTimePicker = useCallback(() => {
+    setIsTimePickerVisible(true);
+  }, []);
 
-  const [sleepTime, setSleepTime] = useState(new Date());
-  const [condition, setCondition] = useState(null);
-  // =========================
+  const handleTimeChange = useCallback(
+    (event, selectedTime) => {
+      if (event?.type === 'dismissed') {
+        if (Platform.OS === 'android') {
+          setIsTimePickerVisible(false);
+        }
+        return;
+      }
+      if (selectedTime) {
+        setTargetSleepTime(selectedTime);
+      }
+      if (Platform.OS === 'android') {
+        setIsTimePickerVisible(false);
+      }
+    },
+    [],
+  );
+
+  const closeTimePicker = useCallback(() => {
+    setIsTimePickerVisible(false);
+  }, []);
+
+  const dateLabel = useMemo(() => {
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    return `${year}년 ${month}월 ${day}일`;
+  }, [selectedDate]);
+
+  const targetSleepLabel = useMemo(() => {
+    const hours = targetSleepTime.getHours();
+    const minutes = String(targetSleepTime.getMinutes()).padStart(2, '0');
+    const period = hours >= 12 ? '오후' : '오전';
+    const hour12 = hours % 12 || 12;
+    return `${period} ${hour12}:${minutes}`;
+  }, [targetSleepTime]);
+
+  const totalCaffeineIntake = useMemo(
+    () => caffeineEntries.reduce((sum, entry) => sum + (entry.mg || 0), 0),
+    [caffeineEntries],
+  );
+
+  const formatEntryTime = useCallback((value) => {
+    const date = new Date(value);
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const period = hours >= 12 ? '오후' : '오전';
+    const hour12 = hours % 12 || 12;
+    return `${period} ${hour12}:${minutes}`;
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.content}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.navButton}>
-              <Text style={styles.navIcon}>‹</Text>
+            <TouchableOpacity style={styles.navButton} onPress={() => changeDateBy(-1)}>
+                <Text style={styles.navIcon}>←</Text>
             </TouchableOpacity>
-            <Text style={styles.dateText}>2025/09/04</Text>
-            <TouchableOpacity style={styles.navButton}>
-              <Text style={styles.navIcon}>›</Text>
+            <Text style={styles.dateText}>{dateLabel}</Text>
+            <TouchableOpacity style={styles.navButton} onPress={() => changeDateBy(1)}>
+                <Text style={styles.navIcon}>→</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.scoreSection}>
-            <Text style={styles.scoreValue}>100°C</Text>
+            <Text style={styles.scoreValue}>--°C</Text>
+            <Text style={styles.scoreLabel}>Today's Cosuon</Text>
             <View style={styles.scoreBar}>
-              <View style={styles.scoreBarFill} />
+                <View style={styles.scoreBarFill} />
             </View>
           </View>
 
           <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardEmoji}>😴</Text>
-              <Text style={styles.cardTitle}>목표 취침 시간</Text>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardEmoji}>😴</Text>
+            <Text style={styles.cardTitle}>목표 취침 시간</Text>
+          </View>
+          <TouchableOpacity style={styles.chip} onPress={openTimePicker}>
+            <Text style={styles.chipText}>{targetSleepLabel}</Text>
+          </TouchableOpacity>
+          {isTimePickerVisible && (
+            <View style={styles.timePickerWrapper}>
+              <DateTimePicker
+                value={targetSleepTime}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleTimeChange}
+                locale="ko-KR"
+              />
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity style={styles.timePickerDoneButton} onPress={closeTimePicker}>
+                  <Text style={styles.timePickerDoneText}>완료</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <View style={styles.chip}>
-              <Text style={styles.chipText}>오후 11:00</Text>
-            </View>
+          )}
           </View>
 
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Text style={styles.cardEmoji}>☕</Text>
-              <Text style={styles.cardTitle}>오늘의 카페인</Text>
-              <View style={styles.cardValueWrapper}>
+                <View style={styles.cardHeaderLeft}>
+                <Text style={styles.cardEmoji}>☕</Text>
+                <Text style={styles.cardTitle}>오늘의 카페인</Text>
+                </View>
+                <View style={styles.cardValueWrapper}>
                 <Text style={styles.cardValueLabel}>총</Text>
-                <Text style={styles.cardValueAccent}>0mg</Text>
-              </View>
+                <Text style={styles.cardValueAccent}>{totalCaffeineIntake}</Text>
+                <Text style={styles.cardValueLabel}>mg</Text>
+                <TouchableOpacity style={styles.addButton} onPress={onAddCaffeinePress}>
+                    <Text style={styles.addButtonIcon}>➕</Text>
+                </TouchableOpacity>
+                </View>
             </View>
-            <TouchableOpacity style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>+  카페인 기록하기</Text>
-            </TouchableOpacity>
+            {caffeineEntries.length === 0 ? (
+                <View style={styles.caffeinePlaceholder}>
+                <Text style={styles.caffeinePlaceholderText}>오늘의 카페인을 기록해보세요.</Text>
+                </View>
+            ) : (
+                <View style={styles.caffeineList}>
+                {caffeineEntries.map((entry) => (
+                    <View key={entry.id} style={styles.caffeineItem}>
+                    <View>
+                        <Text style={styles.caffeineItemName}>{entry.beverage}</Text>
+                        <Text style={styles.caffeineItemTime}>{formatEntryTime(entry.time)}</Text>
+                    </View>
+                    <Text style={styles.caffeineItemAmount}>{entry.mg}mg</Text>
+                    </View>
+                ))}
+                </View>
+            )}
           </View>
 
-          <View style={styles.metricsRow}>
-            <View style={[styles.metricCard, styles.metricBlue]}>
-              <Text style={styles.metricValue}>7시간 23분</Text>
-              <Text style={styles.metricLabel}>평균 수면시간</Text>
-            </View>
-            <View style={[styles.metricCard, styles.metricYellow]}>
-              <Text style={styles.metricValue}>130mg</Text>
-              <Text style={styles.metricLabel}>평균 카페인 섭취량</Text>
-            </View>
-          </View>
-
-          {/* ===== 수면 분석하기 버튼 (모달 연결) ===== */}
-          <TouchableOpacity
-            style={styles.analyzeButton}
-            onPress={() => setSleepModal(true)}
-          >
+          <TouchableOpacity style={styles.analyzeButton}>
             <Text style={styles.analyzeButtonText}>수면 분석하기</Text>
           </TouchableOpacity>
         </View>
-
-        <SleepTimeModal
-          visible={sleepModal}
-          sleepTime={sleepTime}
-          setSleepTime={setSleepTime}
-          onNext={() => {
-            setSleepModal(false);
-            setConditionModal(true);
-          }}
-          onClose={() => setSleepModal(false)}
-        />
-
-        <ConditionModal
-          visible={conditionModal}
-          condition={condition}
-          setCondition={setCondition}
-          onAnalyze={() => setConditionModal(false)}
-          onClose={() => setConditionModal(false)}
-        />
-       {/* ===== 모달 연결 ===== */}
-
+        
         <NavigationTopBar activeTab={activeTab} onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
@@ -131,27 +198,35 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 20,
+    backgroundColor: '#F9F9F9',
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
   },
   navIcon: {
-    fontSize: 28,
-    color: '#1D1D1F',
+    fontSize: 20,
+    color: '#828282',
+    lineHeight: 38,
   },
   dateText: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '600',
     color: '#1D1D1F',
   },
   scoreSection: {
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 24,
+    marginVertical: 32,
   },
   scoreValue: {
-    fontSize: 56,
-    fontWeight: '800',
+    fontSize: 60,
+    fontWeight: '700',
     color: '#1D1D1F',
-    marginBottom: 10,
+    marginBottom: 16,
+  },
+  scoreLabel: {
+    fontSize: 22,
+    color: '#9AA1B4',
+    marginBottom: 16,
   },
   scoreBar: {
     width: '100%',
@@ -167,45 +242,63 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#F7F9FF',
-    borderRadius: 12,
+    borderRadius: 10,
     padding: 20,
     marginBottom: 18,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#DCE6F7',
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    minWidth: 0,
   },
   cardEmoji: {
-    fontSize: 24,
+    fontSize: 28,
     marginRight: 8,
   },
   cardTitle: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#202234',
+    flexShrink: 1,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#171717',
+    minWidth: 0,
   },
   cardValueWrapper: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+    marginLeft: 12,
+    flexWrap: 'nowrap',
   },
   cardValueLabel: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
     color: '#555B77',
   },
   cardValueAccent: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#F29D3C',
   },
+  addButton: {
+    marginLeft: 12,
+  },
+  addButtonIcon: {
+    fontSize: 24,
+  },
   chip: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
     borderWidth: 1,
@@ -216,16 +309,63 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#202234',
   },
-  primaryButton: {
-    backgroundColor: '#3D7BFF',
-    borderRadius: 12,
-    paddingVertical: 16,
+  caffeinePlaceholder: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingVertical: 14,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E3E8F2',
   },
-  primaryButtonText: {
+  caffeinePlaceholderText: {
+    fontSize: 16,
+    color: '#9AA1B4',
+    fontWeight: '600',
+  },
+  caffeineList: {
+    gap: 12,
+  },
+  caffeineItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderRadius: 10,
+    paddingHorizontal: 4,
+  },
+  caffeineItemName: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#1F2433',
+  },
+  caffeineItemTime: {
+    fontSize: 14,
+    color: '#8B92A7',
+    marginTop: 2,
+  },
+  caffeineItemAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333D4D',
+  },
+  timePickerWrapper: {
+    marginTop: 12,
+    borderWidth: Platform.OS === 'ios' ? 1 : 0,
+    borderColor: '#E3E8F2',
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  timePickerDoneButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#E3E8F2',
+  },
+  timePickerDoneText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3D7BFF',
   },
   metricsRow: {
     flexDirection: 'row',
@@ -240,10 +380,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   metricBlue: {
-    backgroundColor: '#BBDFFF',
+    backgroundColor: '#C8E6FF',
   },
-  metricYellow: {
-    backgroundColor: '#FFE7A3',
+  metricLightBlue: {
+    backgroundColor: '#DAEEFF',
   },
   metricValue: {
     fontSize: 20,
@@ -256,14 +396,16 @@ const styles = StyleSheet.create({
     color: '#4E5875',
   },
   analyzeButton: {
-    backgroundColor: '#FF8B3D',
-    borderRadius: 12,
+    backgroundColor: '#8DB5FF',
+    borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
+    marginTop: 36,
   },
   analyzeButtonText: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     color: '#FFFFFF',
+    lineHeight: 28,
   },
 });
