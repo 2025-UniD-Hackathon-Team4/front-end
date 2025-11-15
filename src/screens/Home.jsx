@@ -53,6 +53,10 @@ export default function Home({
   const [casuon, setCasuon] = useState(null);
   const [casuonLoading, setCasuonLoading] = useState(false);
   const [casuonError, setCasuonError] = useState(null);
+  const [caffeineLoading, setCaffeineLoading] = useState(false);
+  const [caffeineError, setCaffeineError] = useState(null);
+  const [apiCaffeineEntries, setApiCaffeineEntries] = useState([]);
+  const [apiCaffeineTotal, setApiCaffeineTotal] = useState(null);
   const authHeaders = useMemo(() => {
     if (naverAuthParams?.accessToken) {
       return { Authorization: `Bearer ${naverAuthParams.accessToken}` };
@@ -374,10 +378,25 @@ export default function Home({
 
   const targetSleepLabel = useMemo(() => formatGoalTime(targetSleepTime), [formatGoalTime, targetSleepTime]);
 
-  const totalCaffeineIntake = useMemo(
-    () => caffeineEntries.reduce((sum, entry) => sum + (entry.mg || 0), 0),
-    [caffeineEntries],
-  );
+  const displayCaffeineEntries = useMemo(() => {
+    if (!caffeineError) {
+      return apiCaffeineEntries;
+    }
+    return caffeineEntries;
+  }, [apiCaffeineEntries, caffeineEntries, caffeineError]);
+
+  const totalCaffeineIntake = useMemo(() => {
+    if (!caffeineError) {
+      if (typeof apiCaffeineTotal === 'number') {
+        return apiCaffeineTotal;
+      }
+      if (apiCaffeineEntries.length > 0) {
+        return apiCaffeineEntries.reduce((sum, entry) => sum + (entry.mg || 0), 0);
+      }
+      return 0;
+    }
+    return caffeineEntries.reduce((sum, entry) => sum + (entry.mg || 0), 0);
+  }, [apiCaffeineEntries, apiCaffeineTotal, caffeineEntries, caffeineError]);
 
   const casuonDisplayValue = useMemo(() => {
     if (casuonLoading) {
@@ -450,8 +469,79 @@ export default function Home({
     };
   }, [selectedDateParam, authHeaders]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchCaffeineByDay = async () => {
+      setCaffeineLoading(true);
+      setCaffeineError(null);
+      try {
+        const query = `date=${encodeURIComponent(selectedDateParam)}`;
+        const response = await fetch(`${buildApiUrl('/caffeine/caffeine/byDay')}?${query}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders,
+          },
+        });
+
+        const data = await response.json();
+        console.log(query, data);
+
+        if (!response.ok) {
+          throw new Error(`caffeine by day 요청 실패 (status: ${response.status})`);
+        }
+        if (!isActive) {
+          return;
+        }
+
+        const intakeList = Array.isArray(data?.result?.caffeineIntakes)
+          ? data.result.caffeineIntakes
+          : [];
+        const normalizedEntries = intakeList.map((item, index) => ({
+          id: item.dateTime ? `${item.dateTime}-${index}` : `caffeine-${index}`,
+          beverage: item.menuName || item.storeName || '기록',
+          mg: item.caffeineMg ?? 0,
+          time: item.dateTime || null,
+          storeName: item.storeName,
+          size: item.size,
+        }));
+        const totalFromApi =
+          typeof data?.result?.totalCaffeineMg === 'number'
+            ? data.result.totalCaffeineMg
+            : normalizedEntries.reduce((sum, entry) => sum + (entry.mg || 0), 0);
+
+        setApiCaffeineEntries(normalizedEntries);
+        setApiCaffeineTotal(totalFromApi);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+        console.error('[Home] caffeine by day fetch error:', error);
+        setCaffeineError(error);
+        setApiCaffeineEntries([]);
+        setApiCaffeineTotal(null);
+      } finally {
+        if (isActive) {
+          setCaffeineLoading(false);
+        }
+      }
+    };
+
+    fetchCaffeineByDay();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedDateParam, authHeaders]);
+
   const formatEntryTime = useCallback((value) => {
+    if (!value) {
+      return '-';
+    }
     const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '-';
+    }
     const hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const period = hours >= 12 ? '오후' : '오전';
@@ -549,14 +639,22 @@ export default function Home({
                 </TouchableOpacity>
                 </View>
             </View>
-            {caffeineEntries.length === 0 ? (
+            {caffeineLoading && (
+              <Text style={styles.caffeineStatusText}>...</Text>
+            )}
+            {caffeineError && !caffeineLoading && (
+              <Text style={styles.caffeineStatusError}>실패</Text>
+            )}
+            {displayCaffeineEntries.length === 0 ? (
                 <View style={styles.caffeinePlaceholder}>
-                  <Text style={styles.caffeinePlaceholderText}>오늘의 카페인을 기록해보세요</Text>
+                  <Text style={styles.caffeinePlaceholderText}>
+                    {caffeineLoading ? '카페인 데이터를 불러오는 중...' : '오늘의 카페인을 기록해보세요'}
+                  </Text>
                 </View>
             ) : (
                 <View style={styles.caffeineList}>
-                {caffeineEntries.map((entry) => (
-                    <View key={entry.id} style={styles.caffeineItem}>
+                {displayCaffeineEntries.map((entry, index) => (
+                    <View key={entry.id || `${entry.time || 'entry'}-${index}`} style={styles.caffeineItem}>
                     <View>
                         <Text style={styles.caffeineItemName}>{entry.beverage}</Text>
                         <Text style={styles.caffeineItemTime}>{formatEntryTime(entry.time)}</Text>
@@ -863,6 +961,16 @@ const styles = StyleSheet.create({
   },
   caffeineList: {
     gap: 12,
+  },
+  caffeineStatusText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  caffeineStatusError: {
+    fontSize: 13,
+    color: '#DC2626',
+    marginBottom: 8,
   },
   caffeineItem: {
     flexDirection: 'row',
