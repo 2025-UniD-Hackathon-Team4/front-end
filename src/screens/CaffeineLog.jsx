@@ -180,7 +180,7 @@ export default function CaffeineLog({
               selectedBrand ? (
                 <>
                   <View style={styles.coffeeOptionGrid}>
-                    {DRINK_OPTIONS.coffee.map((option) => {
+                    {(DRINK_OPTIONS.coffee[selectedBrand] || []).map((option) => {
                       const isActive = selectedOption && selectedOption.id === option.id;
                       return (
                         <TouchableOpacity
