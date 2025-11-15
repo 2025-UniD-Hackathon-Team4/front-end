@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
@@ -18,6 +18,34 @@ import {
   COFFEE_SIZES,
 } from '../constants/caffeineData';
 import StepProgress from '../components/StepProgress';
+import { buildApiUrl } from '../utils/api';
+
+const COFFEE_BRAND_STORE_NAMES = {
+  starbucks: '스타벅스',
+  twosome: '투썸플레이스',
+  mega: '메가커피',
+  compose: '컴포즈커피',
+};
+
+const DEFAULT_SIZE_LABEL = 'regular';
+
+const createResolvedDate = (input) => {
+  if (input instanceof Date) {
+    return new Date(input);
+  }
+  if (typeof input === 'string') {
+    const parsed = new Date(input);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  return new Date();
+};
+
+const formatDateTimeForApi = (input) => {
+  const resolvedDate = createResolvedDate(input);
+  return resolvedDate.toISOString().replace(/Z$/, '');
+};
 
 export default function CaffeineLog({
   onSave = () => {},
@@ -31,6 +59,8 @@ export default function CaffeineLog({
   const [isSizeDropdownOpen, setIsSizeDropdownOpen] = useState(false);
   const [customDrinkName, setCustomDrinkName] = useState('');
   const [customMg, setCustomMg] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   useEffect(() => {
     if (!selectedCategory) {
@@ -69,45 +99,123 @@ export default function CaffeineLog({
     }
   }, [selectedCategory, selectedOption]);
 
-  const handleSave = () => {
+  const buildSaveArtifacts = useCallback(() => {
+    const resolvedDate = createResolvedDate(selectedTime);
+    const resolvedTime = resolvedDate.toISOString();
+    const apiDateTime = formatDateTimeForApi(resolvedDate);
+    const categoryName = DRINK_CATEGORIES.find((cat) => cat.id === selectedCategory)?.name ?? '';
+
     if (selectedCategory === 'coffee') {
       if (!selectedBrand || !selectedOption || !selectedSize) {
-        return;
+        return null;
       }
-      const fallbackTime = new Date().toISOString();
-      onSave({
-        beverage: `${selectedOption.name} (${selectedSize.label})`,
-        category: DRINK_CATEGORIES.find((cat) => cat.id === selectedCategory)?.name ?? '',
-        time: selectedTime ?? fallbackTime,
-      });
-      return;
+      const storeName = COFFEE_BRAND_STORE_NAMES[selectedBrand] ?? (categoryName || '커피');
+      const sizeLabel = selectedSize.label;
+      const menuName = selectedOption.name;
+      return {
+        payload: {
+          dateTime: apiDateTime,
+          storeName,
+          size: sizeLabel,
+          menuName,
+        },
+        clientEntry: {
+          beverage: `${menuName} (${sizeLabel})`,
+          category: categoryName,
+          time: resolvedTime,
+          storeName,
+          size: sizeLabel,
+        },
+      };
     }
 
     if (selectedCategory === 'other') {
       const drinkName = customDrinkName.trim();
       const numericMg = parseInt(customMg, 10);
       if (!drinkName || !numericMg || Number.isNaN(numericMg) || numericMg <= 0) {
-        return;
+        return null;
       }
-      const fallbackTime = new Date().toISOString();
-      onSave({
-        beverage: drinkName,
-        mg: numericMg,
-        category: DRINK_CATEGORIES.find((cat) => cat.id === selectedCategory)?.name ?? '',
-        time: selectedTime ?? fallbackTime,
-      });
+      const storeName = categoryName || '기타';
+      return {
+        payload: {
+          dateTime: apiDateTime,
+          storeName,
+          size: DEFAULT_SIZE_LABEL,
+          menuName: drinkName,
+        },
+        clientEntry: {
+          beverage: drinkName,
+          mg: numericMg,
+          category: storeName,
+          time: resolvedTime,
+          storeName,
+          size: DEFAULT_SIZE_LABEL,
+        },
+      };
+    }
+
+    if (!selectedOption) {
+      return null;
+    }
+
+    const storeName = categoryName || '기타';
+    const menuName = selectedOption.name;
+    return {
+      payload: {
+        dateTime: apiDateTime,
+        storeName,
+        size: DEFAULT_SIZE_LABEL,
+        menuName,
+      },
+      clientEntry: {
+        beverage: menuName,
+        mg: selectedOption.mg,
+        category: storeName,
+        time: resolvedTime,
+        storeName,
+        size: DEFAULT_SIZE_LABEL,
+      },
+    };
+  }, [selectedTime, selectedCategory, selectedBrand, selectedOption, selectedSize, customDrinkName, customMg]);
+
+  const handleSave = useCallback(async () => {
+    if (submitting) {
       return;
     }
 
-    if (!selectedOption) return;
-    const fallbackTime = new Date().toISOString();
-    onSave({
-      beverage: selectedOption.name,
-      mg: selectedOption.mg,
-      category: DRINK_CATEGORIES.find((cat) => cat.id === selectedCategory)?.name ?? '',
-      time: selectedTime ?? fallbackTime,
-    });
-  };
+    const artifacts = buildSaveArtifacts();
+    if (!artifacts) {
+      return;
+    }
+
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const response = await fetch(buildApiUrl('/caffeine/add'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(artifacts.payload),
+      });
+
+      console.log(await response.json());
+      console.log(artifacts.payload);
+
+      if (!response.ok) {
+        throw new Error(`caffeine/add 요청 실패 (status: ${response.status})`);
+      }
+
+      // eslint-disable-next-line no-unused-vars
+      const _responseData = await response.json().catch(() => null);
+      onSave(artifacts.clientEntry);
+    } catch (error) {
+      console.error('[CaffeineLog] caffeine/add error:', error);
+      setSubmitError('실패');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [buildSaveArtifacts, onSave, submitting]);
 
   const selectedTimeLabel = useMemo(() => {
     if (!selectedTime) return null;
@@ -118,7 +226,7 @@ export default function CaffeineLog({
     const hour12 = hours % 12 || 12;
     return `${period} ${hour12}:${minutes}`;
   }, [selectedTime]);
-  const actionButtonLabel = '완료';
+  const actionButtonLabel = submitting ? '저장 중...' : '완료';
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -328,10 +436,19 @@ export default function CaffeineLog({
               <TouchableOpacity style={[styles.actionButton, styles.cancelButton]} onPress={onCancel}>
                 <Text style={styles.cancelButtonText}>이전</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, styles.saveButton]} onPress={handleSave}>
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  styles.saveButton,
+                  submitting && styles.saveButtonDisabled,
+                ]}
+                onPress={handleSave}
+                disabled={submitting}
+              >
                 <Text style={styles.saveButtonText}>{actionButtonLabel}</Text>
               </TouchableOpacity>
             </View>
+            {submitError && <Text style={styles.errorText}>{submitError}</Text>}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -611,6 +728,9 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: '#3D7BFF',
   },
+  saveButtonDisabled: {
+    backgroundColor: '#93C5FD',
+  },
   cancelButtonText: {
     fontSize: 18,
     fontWeight: '600',
@@ -659,5 +779,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#94A3B8',
     marginLeft: 8,
+  },
+  errorText: {
+    marginTop: 12,
+    textAlign: 'center',
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

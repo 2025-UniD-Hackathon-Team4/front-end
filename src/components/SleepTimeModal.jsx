@@ -1,21 +1,38 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+
+const createDefaultEndTime = () => {
+  const d = new Date();
+  d.setHours(8, 0, 0, 0);
+  return d;
+};
 
 export default function SleepTimeModal({
   visible,
   sleepTime,
+  sleepEndTime,
   setSleepTime,
   onNext,
   onClose,
 }) {
   const [startTime, setStartTime] = useState(sleepTime);
 
-  const [endTime, setEndTime] = useState(() => {
-    const d = new Date();
-    d.setHours(8, 0, 0, 0);
-    return d;
-  });
+  const [endTime, setEndTime] = useState(() => sleepEndTime || createDefaultEndTime());
+
+  useEffect(() => {
+    if (visible) {
+      setStartTime(sleepTime);
+    }
+  }, [sleepTime, visible]);
+
+  useEffect(() => {
+    if (visible && sleepEndTime) {
+      setEndTime(sleepEndTime);
+    } else if (visible && !sleepEndTime) {
+      setEndTime(createDefaultEndTime());
+    }
+  }, [sleepEndTime, visible]);
 
   const [activePicker, setActivePicker] = useState(null);
   const [tempTime, setTempTime] = useState(new Date());
@@ -41,7 +58,10 @@ export default function SleepTimeModal({
 
   const handleNext = () => {
     setSleepTime(startTime);
-    onNext();
+    onNext?.({
+      startTime,
+      endTime,
+    });
   };
 
   return (

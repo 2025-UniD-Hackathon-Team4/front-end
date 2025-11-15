@@ -37,6 +37,11 @@ export default function Home({
   const [sleepModal, setSleepModal] = useState(false);
   const [conditionModal, setConditionModal] = useState(false);
   const [sleepTime, setSleepTime] = useState(new Date());
+  const [sleepEndTime, setSleepEndTime] = useState(() => {
+    const d = new Date();
+    d.setHours(8, 0, 0, 0);
+    return d;
+  });
   const [condition, setCondition] = useState(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -394,6 +399,10 @@ export default function Home({
     return "Today's Casuon";
   }, [casuonLoading, casuonError]);
 
+  const isSleepAnalyzeDisabled = useMemo(() => {
+    return typeof casuon === 'number' && Number.isFinite(casuon);
+  }, [casuon]);
+
   useEffect(() => {
     let isActive = true;
 
@@ -505,7 +514,7 @@ export default function Home({
             <Text style={styles.chipText}>{targetSleepLabel}</Text>
           </TouchableOpacity>
           {!isSelectedDateToday && (
-            <Text style={styles.chipHelperText}>지난 날짜의 취침 시간은 변경할 수 없어요</Text>
+            <Text style={styles.chipHelperText}>지난 날짜의 목표 취침 시간은 변경할 수 없어요</Text>
           )}
           {isTimePickerVisible && (
             <View style={styles.timePickerWrapper}>
@@ -542,7 +551,7 @@ export default function Home({
             </View>
             {caffeineEntries.length === 0 ? (
                 <View style={styles.caffeinePlaceholder}>
-                <Text style={styles.caffeinePlaceholderText}>오늘의 카페인을 기록해보세요.</Text>
+                  <Text style={styles.caffeinePlaceholderText}>오늘의 카페인을 기록해보세요</Text>
                 </View>
             ) : (
                 <View style={styles.caffeineList}>
@@ -560,20 +569,35 @@ export default function Home({
           </View>
 
           <TouchableOpacity
-            style={styles.analyzeButton}
+            style={[styles.analyzeButton, isSleepAnalyzeDisabled && styles.analyzeButtonDisabled]}
             onPress={() => setSleepModal(true)}
+            disabled={isSleepAnalyzeDisabled}
           >
-            <Text style={styles.analyzeButtonText}>수면 분석하기</Text>
+            <Text
+              style={[
+                styles.analyzeButtonText,
+                isSleepAnalyzeDisabled && styles.analyzeButtonTextDisabled,
+              ]}
+            >
+              수면 분석하기
+            </Text>
           </TouchableOpacity>
         </ScrollView>
 
         <SleepTimeModal
           visible={sleepModal}
           sleepTime={sleepTime}
+          sleepEndTime={sleepEndTime}
           setSleepTime={setSleepTime}
-          onNext={() => {
+          onNext={({ startTime, endTime }) => {
             setSleepModal(false);
             setConditionModal(true);
+            if (startTime) {
+              setSleepTime(startTime);
+            }
+            if (endTime) {
+              setSleepEndTime(endTime);
+            }
           }}
           onClose={() => setSleepModal(false)}
         />
@@ -582,6 +606,9 @@ export default function Home({
           visible={conditionModal}
           condition={condition}
           setCondition={setCondition}
+          sleepStartAt={sleepTime}
+          sleepEndAt={sleepEndTime}
+          authHeaders={authHeaders}
           onAnalyze={() => setConditionModal(false)}
           onClose={() => setConditionModal(false)}
         />
@@ -1007,10 +1034,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 5,
   },
+  analyzeButtonDisabled: {
+    backgroundColor: '#C6D7F2',
+  },
   analyzeButtonText: {
     fontSize: 22,
     fontWeight: '700',
     color: '#FFFFFF',
     lineHeight: 28,
+  },
+  analyzeButtonTextDisabled: {
+    opacity: 0.5,
   },
 });
