@@ -42,7 +42,7 @@ export default function NavigationTopBar({ activeTab = 'home', onTabChange = () 
             <TouchableOpacity
               key={tab.key}
               style={styles.tabButton}
-              activeOpacity={0.85}
+              activeOpacity={0.9}
               onPress={() => onTabChange(tab.key)}
             >
               <IconComponent
@@ -68,18 +68,19 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#F2F2F2',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 8,
-    paddingVertical: 14,
-    borderRadius: 999,
+    paddingVertical: 10,
+    borderRadius: 100,
     justifyContent: 'space-between',
     alignItems: 'center',
-    width: '92%',
-    shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    width: '100%',
+    shadowColor: '#171717',
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 24,
+    marginBottom: 4,
   },
   tabButton: {
     flex: 1,
@@ -87,14 +88,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   icon: {
-    marginBottom: 6,
+    marginBottom: 4,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
-    color: '#6D6D72',
+    color: '#BABABA',
   },
   labelActive: {
-    color: '#3D3D40',
+    color: '#5B5B5B',
   },
 });
