@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   wrapper: {
     width: '100%',
     alignItems: 'center',
-    paddingBottom: 8,
+    paddingBottom: 16,
   },
   tabBar: {
     flexDirection: 'row',
