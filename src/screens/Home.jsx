@@ -81,7 +81,6 @@ export default function Home({ activeTab = 'home', onTabChange = () => {} }) {
           </TouchableOpacity>
         </View>
 
-        {/* ===== 1단계 모달: 수면시간 ===== */}
         <SleepTimeModal
           visible={sleepModal}
           sleepTime={sleepTime}
@@ -93,7 +92,6 @@ export default function Home({ activeTab = 'home', onTabChange = () => {} }) {
           onClose={() => setSleepModal(false)}
         />
 
-        {/* ===== 2단계 모달: 컨디션 ===== */}
         <ConditionModal
           visible={conditionModal}
           condition={condition}
@@ -101,6 +99,7 @@ export default function Home({ activeTab = 'home', onTabChange = () => {} }) {
           onAnalyze={() => setConditionModal(false)}
           onClose={() => setConditionModal(false)}
         />
+       {/* ===== 모달 연결 ===== */}
 
         <NavigationTopBar activeTab={activeTab} onTabChange={onTabChange} />
       </View>

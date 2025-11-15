@@ -30,7 +30,6 @@ export default function My({ activeTab = 'my', onTabChange = () => {} }) {
       <View style={styles.container}>
 
         <View style={styles.content}>
-          {/* 프로필 */}
           <View style={styles.profileRow}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>N</Text>
@@ -38,11 +37,9 @@ export default function My({ activeTab = 'my', onTabChange = () => {} }) {
             <Text style={styles.profileName}>홍길동</Text>
           </View>
 
-          {/* 카페인 민감도 */}
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>카페인 민감도</Text>
 
-            {/* 민감 */}
             <TouchableOpacity
               style={[
                 styles.optionBox,
@@ -54,7 +51,6 @@ export default function My({ activeTab = 'my', onTabChange = () => {} }) {
               <Text style={styles.optionDesc}>카페인에 매우 민감함</Text>
             </TouchableOpacity>
 
-            {/* 보통 */}
             <TouchableOpacity
               style={[
                 styles.optionBox,
@@ -66,7 +62,6 @@ export default function My({ activeTab = 'my', onTabChange = () => {} }) {
               <Text style={styles.optionDesc}>일반적인 민감도</Text>
             </TouchableOpacity>
 
-            {/* 둔함 */}
             <TouchableOpacity
               style={[
                 styles.optionBox,
@@ -79,7 +74,6 @@ export default function My({ activeTab = 'my', onTabChange = () => {} }) {
             </TouchableOpacity>
           </View>
 
-          {/* 취침 시간 */}
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>기본 목표 취침 시간</Text>
 
@@ -91,7 +85,6 @@ export default function My({ activeTab = 'my', onTabChange = () => {} }) {
             </TouchableOpacity>
           </View>
 
-          {/* 로그아웃 */}
           <TouchableOpacity style={styles.logoutButton}>
             <Text style={styles.logoutText}>로그아웃</Text>
           </TouchableOpacity>
@@ -99,7 +92,6 @@ export default function My({ activeTab = 'my', onTabChange = () => {} }) {
 
         <NavigationTopBar activeTab={activeTab} onTabChange={onTabChange} />
 
-        {/* ===== 모달 TimePicker ===== */}
         <Modal
           transparent={true}
           visible={showPicker}
@@ -163,7 +155,6 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   },
 
-  /* 기존 스타일 아래 동일 */
   safeArea: { flex: 1, backgroundColor: '#F6F8FC' },
   container: { flex: 1, paddingHorizontal: 20, paddingTop: 24, justifyContent: 'space-between' },
   content: { flex: 1 },
