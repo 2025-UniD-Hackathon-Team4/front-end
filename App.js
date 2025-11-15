@@ -8,6 +8,7 @@ import Stats from './src/screens/Stats';
 import My from './src/screens/My';
 import TimeLog from './src/screens/TimeLog';
 import CaffeineLog from './src/screens/CaffeineLog';
+import * as WebBrowser from 'expo-web-browser';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('login'); // login | main | timeLog | caffeineLog
@@ -15,9 +16,13 @@ export default function App() {
   const [caffeineEntries, setCaffeineEntries] = useState([]);
   const [pendingIntakeTime, setPendingIntakeTime] = useState(null);
 
-  const handleNaverLogin = () => {
+  /*const handleNaverLogin = () => {
     setActiveTab('home');
     setCurrentScreen('main');
+  };*/
+    const handleNaverLogin = async () => {
+    const loginUrl = `${process.env.EXPO_PUBLIC_API_URL}/oauth2/authorization/naver`;
+    await WebBrowser.openBrowserAsync(loginUrl);
   };
 
   const handleOpenTimeLog = () => {
