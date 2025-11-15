@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import NavigationTopBar from '../components/NavigationTopBar';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import SleepTimeModal from '../components/SleepTimeModal';
 import ConditionModal from '../components/ConditionModal';
+import { buildApiUrl } from '../utils/api';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -22,6 +23,7 @@ export default function Home({
   onTabChange = () => {},
   caffeineEntries = [],
   onAddCaffeinePress = () => {},
+  naverAuthParams = null,
 }) {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [targetSleepTime, setTargetSleepTime] = useState(() => {
@@ -41,6 +43,15 @@ export default function Home({
     initial.setHours(0, 0, 0, 0);
     return initial;
   });
+  const [casuon, setCasuon] = useState(null);
+  const [casuonLoading, setCasuonLoading] = useState(false);
+  const [casuonError, setCasuonError] = useState(null);
+  const authHeaders = useMemo(() => {
+    if (naverAuthParams?.accessToken) {
+      return { Authorization: `Bearer ${naverAuthParams.accessToken}` };
+    }
+    return {};
+  }, [naverAuthParams]);
 
   const changeDateBy = useCallback((days) => {
     setSelectedDate((prev) => {
@@ -48,6 +59,17 @@ export default function Home({
       nextDate.setDate(prev.getDate() + days);
       return nextDate;
     });
+  }, []);
+
+  const formatGoalTime = useCallback((date) => {
+    if (!(date instanceof Date)) {
+      return '';
+    }
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const period = hours >= 12 ? '오후' : '오전';
+    const hour12 = hours % 12 || 12;
+    return `${period} ${hour12}:${minutes}`;
   }, []);
 
   const openTimePicker = useCallback(() => {
@@ -64,6 +86,32 @@ export default function Home({
     setIsDatePickerVisible(true);
   }, [selectedDate]);
 
+  const saveSleepGoal = useCallback(
+    async (goalDate) => {
+      if (!(goalDate instanceof Date)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(buildApiUrl('/api/add/sleapGoal'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            ...authHeaders,
+          },
+          body: formatGoalTime(goalDate),
+        });
+
+        if (!response.ok) {
+          throw new Error(`sleapGoal 요청 실패 (status: ${response.status})`);
+        }
+      } catch (error) {
+        console.error('[Home] sleapGoal save error:', error);
+      }
+    },
+    [authHeaders, formatGoalTime],
+  );
+
   const handleTimeChange = useCallback(
     (event, selectedTime) => {
       if (event?.type === 'dismissed') {
@@ -74,17 +122,21 @@ export default function Home({
       }
       if (selectedTime) {
         setTargetSleepTime(selectedTime);
-      }
-      if (Platform.OS === 'android') {
+        if (Platform.OS === 'android') {
+          setIsTimePickerVisible(false);
+          saveSleepGoal(selectedTime);
+        }
+      } else if (Platform.OS === 'android') {
         setIsTimePickerVisible(false);
       }
     },
-    [],
+    [saveSleepGoal],
   );
 
-  const closeTimePicker = useCallback(() => {
+  const handleTimePickerDone = useCallback(() => {
     setIsTimePickerVisible(false);
-  }, []);
+    saveSleepGoal(targetSleepTime);
+  }, [saveSleepGoal, targetSleepTime]);
 
   const closeDatePicker = useCallback(() => {
     setIsDatePickerVisible(false);
@@ -135,6 +187,13 @@ export default function Home({
     const normalized = new Date(selectedDate);
     normalized.setHours(0, 0, 0, 0);
     return normalized.getTime();
+  }, [selectedDate]);
+
+  const selectedDateParam = useMemo(() => {
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }, [selectedDate]);
 
   const calendarWeeks = useMemo(() => {
@@ -203,18 +262,79 @@ export default function Home({
     [today],
   );
 
-  const targetSleepLabel = useMemo(() => {
-    const hours = targetSleepTime.getHours();
-    const minutes = String(targetSleepTime.getMinutes()).padStart(2, '0');
-    const period = hours >= 12 ? '오후' : '오전';
-    const hour12 = hours % 12 || 12;
-    return `${period} ${hour12}:${minutes}`;
-  }, [targetSleepTime]);
+  const targetSleepLabel = useMemo(() => formatGoalTime(targetSleepTime), [formatGoalTime, targetSleepTime]);
 
   const totalCaffeineIntake = useMemo(
     () => caffeineEntries.reduce((sum, entry) => sum + (entry.mg || 0), 0),
     [caffeineEntries],
   );
+
+  const casuonDisplayValue = useMemo(() => {
+    if (casuonLoading) {
+      return '...';
+    }
+    if (typeof casuon === 'number' && Number.isFinite(casuon)) {
+      return casuon;
+    }
+    return '--';
+  }, [casuon, casuonLoading]);
+
+  const casuonStatusLabel = useMemo(() => {
+    if (casuonLoading) {
+      return '...';
+    }
+    if (casuonError) {
+      return '해당 날짜의 데이터가 없습니다';
+    }
+    return "Today's Casuon";
+  }, [casuonLoading, casuonError]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchConditionTemp = async () => {
+      setCasuonLoading(true);
+      setCasuonError(null);
+      try {
+        const query = `date=${encodeURIComponent(selectedDateParam)}`;
+        const response = await fetch(`${buildApiUrl('/api/conditionTemp')}?${query}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`conditionTemp 요청 실패 (status: ${response.status})`);
+        }
+
+        const data = await response.json();
+        if (!isActive) {
+          return;
+        }
+
+        const nextValue = typeof data?.result === 'number' ? data.result : null;
+        setCasuon(nextValue);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+        console.error('[Home] conditionTemp fetch error:', error);
+        setCasuonError(error);
+        setCasuon(null);
+      } finally {
+        if (isActive) {
+          setCasuonLoading(false);
+        }
+      }
+    };
+
+    fetchConditionTemp();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedDateParam, authHeaders]);
 
   const formatEntryTime = useCallback((value) => {
     const date = new Date(value);
@@ -260,8 +380,8 @@ export default function Home({
           )}
 
           <View style={styles.scoreSection}>
-            <Text style={styles.scoreValue}>--°C</Text>
-            <Text style={styles.scoreLabel}>Today's Cosuon</Text>
+            <Text style={styles.scoreValue}>{casuonDisplayValue}°C</Text>
+            <Text style={styles.scoreLabel}>{casuonStatusLabel}</Text>
             <View style={styles.scoreBar}>
                 <View style={styles.scoreBarFill} />
             </View>
@@ -285,7 +405,7 @@ export default function Home({
                 locale="ko-KR"
               />
               {Platform.OS === 'ios' && (
-                <TouchableOpacity style={styles.timePickerDoneButton} onPress={closeTimePicker}>
+                <TouchableOpacity style={styles.timePickerDoneButton} onPress={handleTimePickerDone}>
                   <Text style={styles.timePickerDoneText}>완료</Text>
                 </TouchableOpacity>
               )}
