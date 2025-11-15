@@ -14,11 +14,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [caffeineEntries, setCaffeineEntries] = useState([]);
   const [pendingIntakeTime, setPendingIntakeTime] = useState(null);
-
-  const handleNaverLogin = () => {
-    setActiveTab('home');
-    setCurrentScreen('main');
-  };
+  const [naverAuthParams, setNaverAuthParams] = useState(null);
 
   const handleOpenTimeLog = () => {
     setCurrentScreen('timeLog');
@@ -44,6 +40,12 @@ export default function App() {
     setCurrentScreen('main');
   };
 
+  const handleNaverLoginSuccess = (params) => {
+    setNaverAuthParams(params);
+    setActiveTab('home');
+    setCurrentScreen('main');
+  };
+
   const renderMainScreen = () => {
     switch (activeTab) {
       case 'stats':
@@ -58,6 +60,7 @@ export default function App() {
             onTabChange={setActiveTab}
             caffeineEntries={caffeineEntries}
             onAddCaffeinePress={handleOpenTimeLog}
+            naverAuthParams={naverAuthParams}
           />
         );
     }
@@ -65,7 +68,7 @@ export default function App() {
 
   const renderContent = () => {
     if (currentScreen === 'login') {
-      return <Login onNaverLogin={handleNaverLogin} />;
+      return <Login onNaverLoginSuccess={handleNaverLoginSuccess} />;
     }
     if (currentScreen === 'timeLog') {
       return (
