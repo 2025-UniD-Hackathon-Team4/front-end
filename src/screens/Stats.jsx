@@ -4,27 +4,73 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import NavigationTopBar from '../components/NavigationTopBar';
 
 export default function Stats({ activeTab = 'stats', onTabChange = () => {} }) {
-  const [mode, setMode] = useState('week'); // 'week' | 'month'
+  const [mode, setMode] = useState('week'); 
+  const [currentDate, setCurrentDate] = useState(new Date()); 
+
+  const formatDate = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}/${m}/${d}`;
+  };
+
+  const getWeekRange = (base) => {
+    const day = base.getDay(); // 0=일요일
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+
+    const monday = new Date(base);
+    monday.setDate(base.getDate() + diffToMonday);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    return `${formatDate(monday)} - ${formatDate(sunday)}`;
+  };
+
+  const getMonthLabel = (base) => {
+    const year = base.getFullYear();
+    const month = base.getMonth() + 1;
+    return `${year}/${String(month).padStart(2, '0')}`;
+  };
+
+  const movePrev = () => {
+    const newDate = new Date(currentDate);
+
+    if (mode === 'week') newDate.setDate(currentDate.getDate() - 7);
+    else newDate.setMonth(currentDate.getMonth() - 1);
+
+    setCurrentDate(newDate);
+  };
+
+  const moveNext = () => {
+    const newDate = new Date(currentDate);
+
+    if (mode === 'week') newDate.setDate(currentDate.getDate() + 7);
+    else newDate.setMonth(currentDate.getMonth() + 1);
+
+    setCurrentDate(newDate);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          
-          {/* 날짜 범위 */}
-             <View style={styles.header}>
-            <TouchableOpacity style={styles.navButton}>
-              <Text style={styles.navIcon}>‹</Text>
+
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.navButton} onPress={movePrev}>
+              <Text style={styles.navIcon}>←</Text>
             </TouchableOpacity>
-            
-            <Text style={styles.dateText}>2025/09/04 - 2025/09/13</Text>
-                 <TouchableOpacity style={styles.navButton}>
-              <Text style={styles.navIcon}>›</Text>
+
+            <Text style={styles.dateText}>
+              {mode === 'week' ? getWeekRange(currentDate) : getMonthLabel(currentDate)}
+            </Text>
+
+            <TouchableOpacity style={styles.navButton} onPress={moveNext}>
+              <Text style={styles.navIcon}>→</Text>
             </TouchableOpacity>
           </View>
 
-          {/* 주간 / 월간 토글 */}
           <View style={styles.toggleWrapper}>
             <TouchableOpacity
               style={[styles.toggleButton, mode === 'week' && styles.toggleActiveWeek]}
@@ -41,7 +87,6 @@ export default function Stats({ activeTab = 'stats', onTabChange = () => {} }) {
             </TouchableOpacity>
           </View>
 
-          {/* 평균 카드 2개 */}
           <View style={styles.avgRow}>
             <View style={[styles.avgBox, { backgroundColor: '#D6ECFF' }]}>
               <Text style={styles.avgValue}>7시간 39분</Text>
@@ -54,7 +99,6 @@ export default function Stats({ activeTab = 'stats', onTabChange = () => {} }) {
             </View>
           </View>
 
-          {/* 그래프 박스 - 카페인 섭취량 */}
           <View style={styles.chartBox}>
             <Text style={styles.chartTitle}>카페인 섭취량</Text>
             <View style={styles.chartPlaceholder}>
@@ -62,7 +106,6 @@ export default function Stats({ activeTab = 'stats', onTabChange = () => {} }) {
             </View>
           </View>
 
-          {/* 그래프 박스 - 수면 시간 */}
           <View style={styles.chartBox}>
             <Text style={styles.chartTitle}>수면 시간</Text>
             <View style={styles.chartPlaceholder}>
@@ -70,15 +113,15 @@ export default function Stats({ activeTab = 'stats', onTabChange = () => {} }) {
             </View>
           </View>
 
-         <View style={styles.chartBox}>
+          <View style={styles.chartBox}>
             <Text style={styles.chartTitle}>컨디션 온도</Text>
             <View style={styles.chartPlaceholder}>
               <Text style={{ color: '#BBBBBB' }}>(그래프 영역)</Text>
             </View>
           </View>
+
         </ScrollView>
 
-        {/* 하단 네비게이션 */}
         <NavigationTopBar activeTab={activeTab} onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
@@ -108,14 +151,18 @@ const styles = StyleSheet.create({
   },
   navButton: {
     width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
+  height: 32,
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: 20,
+  backgroundColor: '#F9F9F9',
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
   },
   navIcon: {
-    fontSize: 28,
-    color: '#1D1D1F',
+    fontSize: 20,
+    color: '#828282',
+    lineHeight: 38,
   },
   dateText: {
     fontSize: 20,
@@ -123,7 +170,6 @@ const styles = StyleSheet.create({
     color: '#1D1D1F',
   },
 
-  // 주간 월간 토글
   toggleWrapper: {
     flexDirection: 'row',
     borderRadius: 30,
@@ -147,7 +193,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFDDDD',
   },
 
-  // 평균 박스
   avgRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -171,7 +216,6 @@ const styles = StyleSheet.create({
     color: '#555555',
   },
 
-  // 그래프 박스
   chartBox: {
     backgroundColor: '#FFFFFF',
     padding: 20,
@@ -192,4 +236,3 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-
