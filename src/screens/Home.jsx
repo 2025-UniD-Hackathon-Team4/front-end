@@ -1,10 +1,21 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  ScrollView,
+  Modal,
+  TouchableWithoutFeedback,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NavigationTopBar from '../components/NavigationTopBar';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import SleepTimeModal from '../components/SleepTimeModal';
 import ConditionModal from '../components/ConditionModal';
+
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
 export default function Home({
   activeTab = 'home',
@@ -23,6 +34,13 @@ export default function Home({
   const [conditionModal, setConditionModal] = useState(false);
   const [sleepTime, setSleepTime] = useState(new Date());
   const [condition, setCondition] = useState(null);
+  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const initial = new Date();
+    initial.setDate(1);
+    initial.setHours(0, 0, 0, 0);
+    return initial;
+  });
 
   const changeDateBy = useCallback((days) => {
     setSelectedDate((prev) => {
@@ -35,6 +53,16 @@ export default function Home({
   const openTimePicker = useCallback(() => {
     setIsTimePickerVisible(true);
   }, []);
+
+  const openDatePicker = useCallback(() => {
+    setCalendarMonth(() => {
+      const monthDate = new Date(selectedDate);
+      monthDate.setDate(1);
+      monthDate.setHours(0, 0, 0, 0);
+      return monthDate;
+    });
+    setIsDatePickerVisible(true);
+  }, [selectedDate]);
 
   const handleTimeChange = useCallback(
     (event, selectedTime) => {
@@ -58,12 +86,122 @@ export default function Home({
     setIsTimePickerVisible(false);
   }, []);
 
+  const closeDatePicker = useCallback(() => {
+    setIsDatePickerVisible(false);
+  }, []);
+
   const dateLabel = useMemo(() => {
     const year = selectedDate.getFullYear();
     const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
     const day = String(selectedDate.getDate()).padStart(2, '0');
     return `${year}년 ${month}월 ${day}일`;
   }, [selectedDate]);
+
+  const today = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
+  }, []);
+
+  const isNextDisabled = useMemo(() => {
+    const normalizedSelected = new Date(selectedDate);
+    normalizedSelected.setHours(0, 0, 0, 0);
+    return normalizedSelected >= today;
+  }, [selectedDate, today]);
+
+  const handleDateChange = useCallback(
+    (event, pickedDate) => {
+      if (event?.type === 'dismissed') {
+        if (Platform.OS === 'android') {
+          setIsDatePickerVisible(false);
+        }
+        return;
+      }
+      if (pickedDate) {
+        const normalized = new Date(pickedDate);
+        normalized.setHours(0, 0, 0, 0);
+        if (normalized <= today) {
+          setSelectedDate(normalized);
+        }
+      }
+      if (Platform.OS === 'android') {
+        setIsDatePickerVisible(false);
+      }
+    },
+    [today],
+  );
+
+  const normalizedSelectedTime = useMemo(() => {
+    const normalized = new Date(selectedDate);
+    normalized.setHours(0, 0, 0, 0);
+    return normalized.getTime();
+  }, [selectedDate]);
+
+  const calendarWeeks = useMemo(() => {
+    const start = new Date(calendarMonth);
+    start.setDate(1 - start.getDay());
+    start.setHours(0, 0, 0, 0);
+
+    const weeks = [];
+    for (let weekIndex = 0; weekIndex < 6; weekIndex += 1) {
+      const week = [];
+      for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
+        const cell = new Date(start);
+        cell.setDate(start.getDate() + weekIndex * 7 + dayIndex);
+        cell.setHours(0, 0, 0, 0);
+        week.push({
+          date: cell,
+          key: `${cell.getFullYear()}-${cell.getMonth()}-${cell.getDate()}`,
+          isCurrentMonth:
+            cell.getMonth() === calendarMonth.getMonth() && cell.getFullYear() === calendarMonth.getFullYear(),
+          isDisabled: cell > today,
+          isSelected: cell.getTime() === normalizedSelectedTime,
+          isToday: cell.getTime() === today.getTime(),
+        });
+      }
+      weeks.push(week);
+    }
+    return weeks;
+  }, [calendarMonth, normalizedSelectedTime, today]);
+
+  const goToPrevCalendarMonth = useCallback(() => {
+    setCalendarMonth((prev) => {
+      const next = new Date(prev);
+      next.setMonth(prev.getMonth() - 1);
+      next.setDate(1);
+      next.setHours(0, 0, 0, 0);
+      return next;
+    });
+  }, []);
+
+  const goToNextCalendarMonth = useCallback(() => {
+    setCalendarMonth((prev) => {
+      const next = new Date(prev);
+      next.setMonth(prev.getMonth() + 1);
+      next.setDate(1);
+      next.setHours(0, 0, 0, 0);
+      return next;
+    });
+  }, []);
+
+  const isCalendarNextDisabled = useMemo(() => {
+    const next = new Date(calendarMonth);
+    next.setMonth(next.getMonth() + 1);
+    next.setDate(1);
+    next.setHours(0, 0, 0, 0);
+    return next > today;
+  }, [calendarMonth, today]);
+
+  const handleCalendarSelect = useCallback(
+    (date) => {
+      if (date > today) return;
+      const normalized = new Date(date);
+      normalized.setHours(0, 0, 0, 0);
+      setSelectedDate(normalized);
+      setIsDatePickerVisible(false);
+    },
+    [today],
+  );
 
   const targetSleepLabel = useMemo(() => {
     const hours = targetSleepTime.getHours();
@@ -90,16 +228,36 @@ export default function Home({
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.content}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.header}>
             <TouchableOpacity style={styles.navButton} onPress={() => changeDateBy(-1)}>
                 <Text style={styles.navIcon}>←</Text>
             </TouchableOpacity>
-            <Text style={styles.dateText}>{dateLabel}</Text>
-            <TouchableOpacity style={styles.navButton} onPress={() => changeDateBy(1)}>
-                <Text style={styles.navIcon}>→</Text>
+            <TouchableOpacity onPress={openDatePicker} activeOpacity={0.7}>
+              <Text style={styles.dateText}>{dateLabel}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.navButton, isNextDisabled && styles.navButtonDisabled]}
+              onPress={() => changeDateBy(1)}
+              disabled={isNextDisabled}
+            >
+                <Text style={[styles.navIcon, isNextDisabled && styles.navIconDisabled]}>→</Text>
             </TouchableOpacity>
           </View>
+          {isDatePickerVisible && Platform.OS === 'android' && (
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display="default"
+              onChange={handleDateChange}
+              locale="ko-KR"
+              maximumDate={today}
+            />
+          )}
 
           <View style={styles.scoreSection}>
             <Text style={styles.scoreValue}>--°C</Text>
@@ -175,7 +333,7 @@ export default function Home({
           >
             <Text style={styles.analyzeButtonText}>수면 분석하기</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
 
         <SleepTimeModal
           visible={sleepModal}
@@ -195,7 +353,84 @@ export default function Home({
           onAnalyze={() => setConditionModal(false)}
           onClose={() => setConditionModal(false)}
         />
-        
+
+        {Platform.OS === 'ios' && (
+          <Modal visible={isDatePickerVisible} transparent animationType="fade">
+            <TouchableWithoutFeedback onPress={closeDatePicker}>
+              <View style={styles.datePickerModalOverlay}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View style={styles.datePickerSheet}>
+                    <View style={styles.calendarHeader}>
+                      <TouchableOpacity style={styles.calendarNavButton} onPress={goToPrevCalendarMonth}>
+                        <Text style={styles.calendarNavIcon}>←</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.datePickerTitle}>
+                        {`${calendarMonth.getFullYear()}년 ${String(calendarMonth.getMonth() + 1).padStart(2, '0')}월`}
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.calendarNavButton,
+                          isCalendarNextDisabled && styles.calendarNavButtonDisabled,
+                        ]}
+                        onPress={goToNextCalendarMonth}
+                        disabled={isCalendarNextDisabled}
+                      >
+                        <Text
+                          style={[
+                            styles.calendarNavIcon,
+                            isCalendarNextDisabled && styles.calendarNavIconDisabled,
+                          ]}
+                        >
+                          →
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.calendarWeekdayRow}>
+                      {DAY_LABELS.map((label) => (
+                        <Text key={label} style={styles.calendarWeekday}>
+                          {label}
+                        </Text>
+                      ))}
+                    </View>
+                    {calendarWeeks.map((week, index) => (
+                      <View key={`week-${index}`} style={styles.calendarWeekRow}>
+                        {week.map((day) => (
+                          <TouchableOpacity
+                            key={day.key}
+                            style={[
+                              styles.calendarDayCell,
+                              !day.isCurrentMonth && styles.calendarDayOutside,
+                              day.isDisabled && styles.calendarDayDisabled,
+                              day.isToday && styles.calendarDayToday,
+                              day.isSelected && styles.calendarDaySelected,
+                            ]}
+                            onPress={() => handleCalendarSelect(day.date)}
+                            disabled={day.isDisabled}
+                          >
+                            <Text
+                              style={[
+                                styles.calendarDayText,
+                                !day.isCurrentMonth && styles.calendarDayTextOutside,
+                                day.isDisabled && styles.calendarDayTextDisabled,
+                                day.isSelected && styles.calendarDayTextSelected,
+                              ]}
+                            >
+                              {day.date.getDate()}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    ))}
+                    <TouchableOpacity style={styles.timePickerDoneButton} onPress={closeDatePicker}>
+                      <Text style={styles.timePickerDoneText}>닫기</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
+        )}
+
         <NavigationTopBar activeTab={activeTab} onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
@@ -211,10 +446,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 24,
-    justifyContent: 'space-between',
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 32,
   },
   header: {
     flexDirection: 'row',
@@ -231,10 +468,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DDDDDD',
   },
+  navButtonDisabled: {
+    opacity: 0.5,
+  },
   navIcon: {
     fontSize: 20,
     color: '#828282',
     lineHeight: 38,
+  },
+  navIconDisabled: {
+    color: '#BDBDBD',
   },
   dateText: {
     fontSize: 22,
@@ -394,6 +637,99 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#3D7BFF',
+  },
+  datePickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  datePickerSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  datePickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1D1D1F',
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  calendarNavButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  calendarNavButtonDisabled: {
+    opacity: 0.4,
+  },
+  calendarNavIcon: {
+    fontSize: 16,
+    color: '#1F2937',
+  },
+  calendarNavIconDisabled: {
+    color: '#94A3B8',
+  },
+  calendarWeekdayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  calendarWeekday: {
+    width: `${100 / 7}%`,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  calendarWeekRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  calendarDayCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarDayOutside: {
+    opacity: 0.4,
+  },
+  calendarDayDisabled: {
+    opacity: 0.3,
+  },
+  calendarDayToday: {
+    borderWidth: 1,
+    borderColor: '#3D7BFF',
+  },
+  calendarDaySelected: {
+    backgroundColor: '#3D7BFF',
+  },
+  calendarDayText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1D1D1F',
+  },
+  calendarDayTextOutside: {
+    color: '#94A3B8',
+  },
+  calendarDayTextDisabled: {
+    color: '#94A3B8',
+  },
+  calendarDayTextSelected: {
+    color: '#FFFFFF',
   },
   metricsRow: {
     flexDirection: 'row',

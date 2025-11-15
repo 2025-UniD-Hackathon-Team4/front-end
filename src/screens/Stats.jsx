@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NavigationTopBar from '../components/NavigationTopBar';
@@ -6,6 +6,12 @@ import NavigationTopBar from '../components/NavigationTopBar';
 export default function Stats({ activeTab = 'stats', onTabChange = () => {} }) {
   const [mode, setMode] = useState('week'); 
   const [currentDate, setCurrentDate] = useState(new Date()); 
+
+  const today = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
+  }, []);
 
   const formatDate = (date) => {
     const y = date.getFullYear();
@@ -51,6 +57,20 @@ export default function Stats({ activeTab = 'stats', onTabChange = () => {} }) {
     setCurrentDate(newDate);
   };
 
+  const isNextDisabled = useMemo(() => {
+    const nextDate = new Date(currentDate);
+    nextDate.setHours(0, 0, 0, 0);
+
+    if (mode === 'week') {
+      nextDate.setDate(nextDate.getDate() + 7);
+    } else {
+      nextDate.setDate(1);
+      nextDate.setMonth(nextDate.getMonth() + 1);
+    }
+
+    return nextDate > today;
+  }, [currentDate, mode, today]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -66,8 +86,12 @@ export default function Stats({ activeTab = 'stats', onTabChange = () => {} }) {
               {mode === 'week' ? getWeekRange(currentDate) : getMonthLabel(currentDate)}
             </Text>
 
-            <TouchableOpacity style={styles.navButton} onPress={moveNext}>
-              <Text style={styles.navIcon}>→</Text>
+            <TouchableOpacity
+              style={[styles.navButton, isNextDisabled && styles.navButtonDisabled]}
+              onPress={moveNext}
+              disabled={isNextDisabled}
+            >
+              <Text style={[styles.navIcon, isNextDisabled && styles.navIconDisabled]}>→</Text>
             </TouchableOpacity>
           </View>
 
@@ -159,10 +183,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DDDDDD',
   },
+  navButtonDisabled: {
+    opacity: 0.5,
+  },
   navIcon: {
     fontSize: 20,
     color: '#828282',
     lineHeight: 38,
+  },
+  navIconDisabled: {
+    color: '#BDBDBD',
   },
   dateText: {
     fontSize: 20,
