@@ -8,7 +8,6 @@ import Stats from './src/screens/Stats';
 import My from './src/screens/My';
 import TimeLog from './src/screens/TimeLog';
 import CaffeineLog from './src/screens/CaffeineLog';
-import * as WebBrowser from 'expo-web-browser';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('login'); // login | main | timeLog | caffeineLog
@@ -16,6 +15,11 @@ export default function App() {
   const [caffeineEntries, setCaffeineEntries] = useState([]);
   const [pendingIntakeTime, setPendingIntakeTime] = useState(null);
   const [naverAuthParams, setNaverAuthParams] = useState(null);
+
+  const handleNaverLogin = () => {
+    setActiveTab('home');
+    setCurrentScreen('main');
+  };
 
   const handleOpenTimeLog = () => {
     setCurrentScreen('timeLog');
@@ -69,7 +73,8 @@ export default function App() {
 
   const renderContent = () => {
     if (currentScreen === 'login') {
-      return <Login onNaverLoginSuccess={handleNaverLoginSuccess} />;
+      return <Login onNaverLogin={handleNaverLogin} />;
+      //return <Login onNaverLoginSuccess={handleNaverLoginSuccess} />;
     }
     if (currentScreen === 'timeLog') {
       return (
