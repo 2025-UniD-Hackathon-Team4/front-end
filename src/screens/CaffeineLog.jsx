@@ -44,6 +44,7 @@ const createResolvedDate = (input) => {
 
 const formatDateTimeForApi = (input) => {
   const resolvedDate = createResolvedDate(input);
+  // ISO 8601 형식에서 밀리초와 Z 제거 (예: "2025-11-16T02:14:14")
   return resolvedDate.toISOString().replace(/\.\d{3}Z$/, '');
 };
 
@@ -191,6 +192,12 @@ export default function CaffeineLog({
     setSubmitting(true);
     setSubmitError(null);
     try {
+      console.log('[CaffeineLog] API 요청 전송:', {
+        selectedTime,
+        payload: artifacts.payload,
+        dateTime: artifacts.payload.dateTime,
+      });
+
       const response = await fetch(buildApiUrl('/caffeine/add'), {
         method: 'POST',
         headers: {
@@ -199,15 +206,14 @@ export default function CaffeineLog({
         body: JSON.stringify(artifacts.payload),
       });
 
-      console.log(await response.json());
-      console.log(artifacts.payload);
+      const responseData = await response.json();
+      console.log('[CaffeineLog] API 응답:', responseData);
+      console.log('[CaffeineLog] 전송한 payload:', artifacts.payload);
 
       if (!response.ok) {
         throw new Error(`caffeine/add 요청 실패 (status: ${response.status})`);
       }
 
-      // eslint-disable-next-line no-unused-vars
-      const _responseData = await response.json().catch(() => null);
       onSave(artifacts.clientEntry);
     } catch (error) {
       console.error('[CaffeineLog] caffeine/add error:', error);
