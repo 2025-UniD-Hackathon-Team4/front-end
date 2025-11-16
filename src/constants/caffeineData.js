@@ -31,7 +31,7 @@ export const DRINK_OPTIONS = {
     },
     {
       id: 's_caramel',
-      name: '캬라멜 마끼야또',
+      name: '카라멜마끼아또',
       image: require('../../assets/coffee/starbucks/caramel.jpg'),
     },
     {
@@ -49,9 +49,9 @@ export const DRINK_OPTIONS = {
       name: '자몽허니블랙티',
       image: require('../../assets/coffee/starbucks/jamong.jpg'),
     },
-  ],
+    ],
 
-  twosome: [
+    twosome: [
   {
       id: 't_vanilla',
       name: '바닐라라떼',
@@ -64,7 +64,7 @@ export const DRINK_OPTIONS = {
     },
     {
       id: 't_caramel',
-      name: '캬라멜 마끼야또',
+      name: '카라멜마끼아또',
       image: require('../../assets/coffee/twosome/caramel.jpg'),
     },
     {
@@ -82,9 +82,9 @@ export const DRINK_OPTIONS = {
       name: '카페치노',
       image: require('../../assets/coffee/twosome/cappuccino.png'),
     },
-  ],
+    ],
 
-  mega: [
+    mega: [
     {
       id: 'm_americano',
       name: '아메리카노',
@@ -102,7 +102,7 @@ export const DRINK_OPTIONS = {
     },
     {
       id: 'm_caramel',
-      name: '캬라멜마끼야또',
+      name: '카라멜마끼아또',
       image: require('../../assets/coffee/mega/caramel.jpg'),
     },
     {
@@ -116,8 +116,9 @@ export const DRINK_OPTIONS = {
       image: require('../../assets/coffee/mega/mocha.jpg'),
     },
     
-  ],
-  compose: [
+    ],
+
+    compose: [
     {
       id: 'c_dalgona',
       name: '달고나라떼',
@@ -167,17 +168,20 @@ export const DRINK_OPTIONS = {
     { id: 'earlGrey', name: '우롱차' },
     { id: 'whiteTea', name: '백차' },
   ],
+
   energy: [
     { id: 'monster', name: '몬스터 에너지' },
     { id: 'hotSix', name: '핫식스' },
     { id: 'redBull', name: '레드불' },
     { id: 'bacchus', name: '박카스' },
   ],
+
   soda: [
     { id: 'coke', name: '코카콜라' },
     { id: 'pepsi', name: '펩시' },
     { id: 'drPepper', name: '닥터페퍼' },
   ],
+  
   other: [],
 };
 
