@@ -16,11 +16,6 @@ export default function App() {
   const [pendingIntakeTime, setPendingIntakeTime] = useState(null);
   const [naverAuthParams, setNaverAuthParams] = useState(null);
 
-  const handleNaverLogin = () => {
-    setActiveTab('home');
-    setCurrentScreen('main');
-  };
-
   const handleOpenTimeLog = () => {
     setCurrentScreen('timeLog');
   };
@@ -73,8 +68,7 @@ export default function App() {
 
   const renderContent = () => {
     if (currentScreen === 'login') {
-      return <Login onNaverLogin={handleNaverLogin} />;
-      //return <Login onNaverLoginSuccess={handleNaverLoginSuccess} />;
+      return <Login onNaverLoginSuccess={handleNaverLoginSuccess} />;
     }
     if (currentScreen === 'timeLog') {
       return (

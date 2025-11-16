@@ -1,14 +1,35 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import StepProgress from '../components/StepProgress';
 
 export default function TimeLog({ onSave = () => {}, onCancel = () => {}, initialTime = null }) {
-  const [selectedTime, setSelectedTime] = useState(() =>
-    initialTime ? new Date(initialTime) : new Date(),
-  );
+  const [selectedTime, setSelectedTime] = useState(() => {
+    if (initialTime) {
+      return new Date(initialTime);
+    }
+    return new Date();
+  });
   const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
+
+  // initialTime이 변경되면 selectedTime의 날짜를 업데이트
+  useEffect(() => {
+    if (initialTime) {
+      const newInitialTime = new Date(initialTime);
+      setSelectedTime((prevTime) => {
+        const updatedTime = new Date(newInitialTime);
+        // 기존에 선택된 시간을 유지
+        updatedTime.setHours(
+          prevTime.getHours(),
+          prevTime.getMinutes(),
+          prevTime.getSeconds(),
+          prevTime.getMilliseconds()
+        );
+        return updatedTime;
+      });
+    }
+  }, [initialTime]);
 
   const formattedTime = useMemo(() => {
     const hours = selectedTime.getHours();

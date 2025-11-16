@@ -693,7 +693,10 @@ export default function Home({
                 <Text style={styles.cardValueLabel}>총</Text>
                 <Text style={styles.cardValueAccent}>{totalCaffeineIntake}</Text>
                 <Text style={styles.cardValueLabel}>mg</Text>
-                <TouchableOpacity style={styles.addButton} onPress={onAddCaffeinePress}>
+                <TouchableOpacity 
+                    style={styles.addButton} 
+                    onPress={() => onAddCaffeinePress(selectedDate)}
+                >
                     <Text style={styles.addButtonIcon}>➕</Text>
                 </TouchableOpacity>
                 </View>
