@@ -295,7 +295,7 @@ export default function Home({
       setConditionSummary(nextSummary);
     } catch (error) {
       setConditionSummary('');
-      setConditionSummaryError('컨디션 요약을 불러오는 중 문제가 발생했어요.');
+      setConditionSummaryError('');
     } finally {
       setConditionSummaryLoading(false);
     }
