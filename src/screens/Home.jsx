@@ -127,9 +127,6 @@ export default function Home({
   }, []);
 
   const openTimePicker = useCallback(() => {
-    if (!isSelectedDateToday) {
-      return;
-    }
     setIsTimePickerVisible(true);
   }, [isSelectedDateToday]);
 
@@ -180,13 +177,6 @@ export default function Home({
         return;
       }
 
-      if (!isSelectedDateToday) {
-        if (Platform.OS === 'android') {
-          setIsTimePickerVisible(false);
-        }
-        return;
-      }
-
       if (selectedTime) {
         setTargetSleepTime(selectedTime);
         if (Platform.OS === 'android') {
@@ -201,19 +191,9 @@ export default function Home({
   );
 
   const handleTimePickerDone = useCallback(() => {
-    if (!isSelectedDateToday) {
-      setIsTimePickerVisible(false);
-      return;
-    }
     setIsTimePickerVisible(false);
     saveSleepGoal(targetSleepTime);
   }, [isSelectedDateToday, saveSleepGoal, targetSleepTime]);
-
-  useEffect(() => {
-    if (!isSelectedDateToday && isTimePickerVisible) {
-      setIsTimePickerVisible(false);
-    }
-  }, [isSelectedDateToday, isTimePickerVisible]);
 
   const closeDatePicker = useCallback(() => {
     setIsDatePickerVisible(false);
@@ -619,15 +599,14 @@ export default function Home({
             <Text style={styles.cardTitle}>목표 취침 시간</Text>
           </View>
           <TouchableOpacity
-            style={[styles.chip, !isSelectedDateToday && styles.chipDisabled]}
+            //style={[styles.chip, !isSelectedDateToday && styles.chipDisabled]}
+            style={[styles.chip]}
             onPress={openTimePicker}
-            disabled={!isSelectedDateToday}
+            //disabled={!isSelectedDateToday}
           >
             <Text style={styles.chipText}>{targetSleepLabel}</Text>
           </TouchableOpacity>
-          {!isSelectedDateToday && (
-            <Text style={styles.chipHelperText}>지난 날짜의 목표 취침 시간은 변경할 수 없어요</Text>
-          )}
+       
           {isTimePickerVisible && (
             <View style={styles.timePickerWrapper}>
               <DateTimePicker

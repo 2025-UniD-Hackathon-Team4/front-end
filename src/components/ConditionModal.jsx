@@ -8,6 +8,20 @@ const CONDITION_SCORE = {
   bad: 1,
 };
 
+function normalizeSleepTimes(startDate, endDate) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (end <= start) {
+    end.setDate(end.getDate() + 1);
+  }
+
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+  };
+}
+
 export default function ConditionModal({
   visible,
   condition,
@@ -43,6 +57,7 @@ export default function ConditionModal({
 
     setSubmitting(true);
     try {
+      const { startIso, endIso } = normalizeSleepTimes(sleepStartAt, sleepEndAt);
       const response = await fetch(buildApiUrl('/api/daily-summary'), {
         method: 'POST',
         headers: {
